@@ -214,7 +214,7 @@ class TypeAnnotator(metaclass=_TypeAnnotator):
         # would reprocess the entire subtree to coerce the types of its operands' projections
         self._setop_column_types: t.Dict[int, t.Dict[str, exp.DataType | exp.DataType.Type]] = {}
 
-        # Enables partial annotation and skips re-annotating existing nodes
+        # When set to False, this enables partial annotation by skipping already-annotated nodes
         self._overwrite_types = overwrite_types
 
     def _set_type(
