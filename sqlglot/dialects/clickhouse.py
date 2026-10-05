@@ -101,7 +101,7 @@ def _build_str_to_date(args: t.List) -> exp.Cast | exp.Anonymous:
 
 
 def _build_type_conversion(to_type: exp.DataType.Type) -> t.Callable[[t.List], exp.Cast]:
-    return lambda args: exp.cast(seq_get(args, 0) or exp.Var(this=""), to_type)
+    return lambda args: exp.cast(seq_get(args, 0) or exp.Var(this=""), exp.DataType.build(to_type))
 
 
 def _datetime_delta_sql(name: str) -> t.Callable[[Generator, DATEΤΙΜΕ_DELTA], str]:
