@@ -909,10 +909,10 @@ FROM READ_CSV('tests/fixtures/optimizer/tpc-h/nation.csv.gz', 'delimiter', '|') 
             load_sql_fixture_pairs("optimizer/annotate_functions.sql"), start=1
         ):
             title = meta.get("title") or f"{i}, {sql}"
-            dialect = meta.get("dialect") or ""
+            dialect_str = meta.get("dialect") or ""
             sql = f"SELECT {sql} FROM tbl"
 
-            for dialect in dialect.split(", "):
+            for dialect in dialect_str.split(", "):
                 result = parse_and_optimize(
                     annotate_functions, sql, dialect, schema=test_schema, dialect=dialect
                 )
