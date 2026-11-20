@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from sqlglot import exp, generator, parser, tokens, transforms
-from sqlglot.dialects.dialect import Dialect, rename_func, strposition_sql as _strposition_sql
+from sqlglot.dialects.dialect import Dialect, rename_func
+from sqlglot.dialects.dialect import strposition_sql as _strposition_sql
 from sqlglot.helper import seq_get
 
 

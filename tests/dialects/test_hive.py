@@ -1,6 +1,6 @@
-from tests.dialects.test_dialect import Validator
-
 from sqlglot import exp
+
+from tests.dialects.test_dialect import Validator
 
 
 class TestHive(Validator):

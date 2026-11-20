@@ -2,6 +2,7 @@ from unittest import mock
 
 from sqlglot import exp, parse_one
 from sqlglot.dialects.dialect import Dialects
+
 from tests.dialects.test_dialect import Validator
 
 

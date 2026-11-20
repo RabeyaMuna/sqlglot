@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import itertools
 import logging
-import typing as t
 from collections import defaultdict
 from enum import Enum, auto
 
@@ -251,7 +250,7 @@ class Scope:
         return self._subqueries
 
     @property
-    def stars(self) -> t.List[exp.Column | exp.Dot]:
+    def stars(self) -> list[exp.Column | exp.Dot]:
         """
         List of star expressions (columns or dots) in this scope.
         """
@@ -349,7 +348,7 @@ class Scope:
         return self._selected_sources
 
     @property
-    def references(self) -> t.List[t.Tuple[str, exp.Expression]]:
+    def references(self) -> list[tuple[str, exp.Expression]]:
         if self._references is None:
             self._references = []
 
@@ -532,7 +531,7 @@ class Scope:
         return scope_ref_count
 
 
-def traverse_scope(expression: exp.Expression) -> t.List[Scope]:
+def traverse_scope(expression: exp.Expression) -> list[Scope]:
     """
     Traverse an expression by its "scopes".
 
@@ -563,7 +562,7 @@ def traverse_scope(expression: exp.Expression) -> t.List[Scope]:
     return []
 
 
-def build_scope(expression: exp.Expression) -> t.Optional[Scope]:
+def build_scope(expression: exp.Expression) -> Scope | None:
     """
     Build a scope tree.
 

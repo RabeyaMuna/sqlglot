@@ -1,6 +1,7 @@
-from tests.dialects.test_dialect import Validator
-from sqlglot import parse_one, exp, UnsupportedError, ErrorLevel, transpile, ParseError
+from sqlglot import ErrorLevel, ParseError, UnsupportedError, exp, parse_one, transpile
 from sqlglot.optimizer.annotate_types import annotate_types
+
+from tests.dialects.test_dialect import Validator
 
 
 class TestDremio(Validator):

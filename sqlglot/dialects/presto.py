@@ -8,11 +8,13 @@ from sqlglot.dialects.dialect import (
     NormalizationStrategy,
     binary_from_function,
     bool_xor_sql,
+    build_formatted_time,
+    build_regexp_extract,
     build_replace_with_optional_replacement,
     date_trunc_to_time,
     datestrtodate_sql,
     encode_decode_sql,
-    build_formatted_time,
+    explode_to_unnest_sql,
     if_sql,
     left_to_substring_sql,
     no_ilike_sql,
@@ -21,25 +23,23 @@ from sqlglot.dialects.dialect import (
     regexp_extract_sql,
     rename_func,
     right_to_substring_sql,
+    sequence_sql,
     sha256_sql,
+    space_sql,
     strposition_sql,
     struct_extract_sql,
     timestamptrunc_sql,
     timestrtotime_sql,
     ts_or_ds_add_cast,
     unit_to_str,
-    sequence_sql,
-    build_regexp_extract,
-    explode_to_unnest_sql,
-    space_sql,
 )
 from sqlglot.dialects.hive import Hive
 from sqlglot.dialects.mysql import MySQL
+from sqlglot.generator import unsupported_args
 from sqlglot.helper import apply_index_offset, seq_get
 from sqlglot.optimizer.scope import find_all_in_scope
 from sqlglot.tokens import TokenType
 from sqlglot.transforms import unqualify_columns
-from sqlglot.generator import unsupported_args
 
 DATE_ADD_OR_SUB = t.Union[exp.DateAdd, exp.TimestampAdd, exp.DateSub]
 
@@ -113,7 +113,7 @@ def _ts_or_ds_diff_sql(self: Presto.Generator, expression: exp.TsOrDsDiff) -> st
     return self.func("DATE_DIFF", unit, expr, this)
 
 
-def _build_approx_percentile(args: t.List) -> exp.Expression:
+def _build_approx_percentile(args: list) -> exp.Expression:
     if len(args) == 4:
         return exp.ApproxQuantile(
             this=seq_get(args, 0),
@@ -128,7 +128,7 @@ def _build_approx_percentile(args: t.List) -> exp.Expression:
     return exp.ApproxQuantile.from_arg_list(args)
 
 
-def _build_from_unixtime(args: t.List) -> exp.Expression:
+def _build_from_unixtime(args: list) -> exp.Expression:
     if len(args) == 3:
         return exp.UnixToTime(
             this=seq_get(args, 0),
@@ -174,7 +174,7 @@ def _to_int(self: Presto.Generator, expression: exp.Expression) -> exp.Expressio
     return expression
 
 
-def _build_to_char(args: t.List) -> exp.TimeToStr:
+def _build_to_char(args: list) -> exp.TimeToStr:
     fmt = seq_get(args, 1)
     if isinstance(fmt, exp.Literal):
         # We uppercase this to match Teradata's format mapping keys
@@ -258,7 +258,7 @@ class Presto(Dialect):
     SUPPORTS_SEMI_ANTI_JOIN = False
     TYPED_DIVISION = True
     TABLESAMPLE_SIZE_IS_PERCENT = True
-    LOG_BASE_FIRST: t.Optional[bool] = None
+    LOG_BASE_FIRST: bool | None = None
     SUPPORTS_VALUES_DEFAULT = False
 
     TIME_MAPPING = MySQL.TIME_MAPPING
@@ -278,9 +278,11 @@ class Presto(Dialect):
         exp.Round: lambda self, e: self._annotate_by_args(e, "this"),
         exp.Sign: lambda self, e: self._annotate_by_args(e, "this"),
         exp.Abs: lambda self, e: self._annotate_by_args(e, "this"),
-        exp.Rand: lambda self, e: self._annotate_by_args(e, "this")
-        if e.this
-        else self._set_type(e, exp.DataType.Type.DOUBLE),
+        exp.Rand: lambda self, e: (
+            self._annotate_by_args(e, "this")
+            if e.this
+            else self._set_type(e, exp.DataType.Type.DOUBLE)
+        ),
     }
 
     SUPPORTED_SETTINGS = {
@@ -292,7 +294,7 @@ class Presto(Dialect):
         HEX_STRINGS = [("x'", "'"), ("X'", "'")]
         UNICODE_STRINGS = [
             (prefix + q, q)
-            for q in t.cast(t.List[str], tokens.Tokenizer.QUOTES)
+            for q in t.cast(list[str], tokens.Tokenizer.QUOTES)
             for prefix in ("U&", "u&")
         ]
 
@@ -460,20 +462,24 @@ class Presto(Dialect):
                 "DATE_DIFF", unit_to_str(e), e.expression, e.this
             ),
             exp.DateStrToDate: datestrtodate_sql,
-            exp.DateToDi: lambda self,
-            e: f"CAST(DATE_FORMAT({self.sql(e, 'this')}, {Presto.DATEINT_FORMAT}) AS INT)",
+            exp.DateToDi: lambda self, e: (
+                f"CAST(DATE_FORMAT({self.sql(e, 'this')}, {Presto.DATEINT_FORMAT}) AS INT)"
+            ),
             exp.DateSub: _date_delta_sql("DATE_ADD", negate_interval=True),
             exp.DayOfWeek: lambda self, e: f"(({self.func('DAY_OF_WEEK', e.this)} % 7) + 1)",
             exp.DayOfWeekIso: rename_func("DAY_OF_WEEK"),
             exp.Decode: lambda self, e: encode_decode_sql(self, e, "FROM_UTF8"),
-            exp.DiToDate: lambda self,
-            e: f"CAST(DATE_PARSE(CAST({self.sql(e, 'this')} AS VARCHAR), {Presto.DATEINT_FORMAT}) AS DATE)",
+            exp.DiToDate: lambda self, e: (
+                f"CAST(DATE_PARSE(CAST({self.sql(e, 'this')} AS VARCHAR), {Presto.DATEINT_FORMAT}) AS DATE)"
+            ),
             exp.Encode: lambda self, e: encode_decode_sql(self, e, "TO_UTF8"),
-            exp.FileFormatProperty: lambda self,
-            e: f"format={self.sql(exp.Literal.string(e.name))}",
+            exp.FileFormatProperty: lambda self, e: (
+                f"format={self.sql(exp.Literal.string(e.name))}"
+            ),
             exp.First: _first_last_sql,
-            exp.FromTimeZone: lambda self,
-            e: f"WITH_TIMEZONE({self.sql(e, 'this')}, {self.sql(e, 'zone')}) AT TIME ZONE 'UTC'",
+            exp.FromTimeZone: lambda self, e: (
+                f"WITH_TIMEZONE({self.sql(e, 'this')}, {self.sql(e, 'zone')}) AT TIME ZONE 'UTC'"
+            ),
             exp.GenerateSeries: sequence_sql,
             exp.GenerateDateArray: sequence_sql,
             exp.Group: transforms.preprocess([transforms.unalias_group]),
@@ -526,17 +532,20 @@ class Presto(Dialect):
             exp.TimeToUnix: rename_func("TO_UNIXTIME"),
             exp.ToChar: lambda self, e: self.func("DATE_FORMAT", e.this, self.format_time(e)),
             exp.TryCast: transforms.preprocess([transforms.epoch_cast_to_ts]),
-            exp.TsOrDiToDi: lambda self,
-            e: f"CAST(SUBSTR(REPLACE(CAST({self.sql(e, 'this')} AS VARCHAR), '-', ''), 1, 8) AS INT)",
+            exp.TsOrDiToDi: lambda self, e: (
+                f"CAST(SUBSTR(REPLACE(CAST({self.sql(e, 'this')} AS VARCHAR), '-', ''), 1, 8) AS INT)"
+            ),
             exp.TsOrDsAdd: _ts_or_ds_add_sql,
             exp.TsOrDsDiff: _ts_or_ds_diff_sql,
             exp.TsOrDsToDate: _ts_or_ds_to_date_sql,
             exp.Unhex: rename_func("FROM_HEX"),
-            exp.UnixToStr: lambda self,
-            e: f"DATE_FORMAT(FROM_UNIXTIME({self.sql(e, 'this')}), {self.format_time(e)})",
+            exp.UnixToStr: lambda self, e: (
+                f"DATE_FORMAT(FROM_UNIXTIME({self.sql(e, 'this')}), {self.format_time(e)})"
+            ),
             exp.UnixToTime: _unix_to_time_sql,
-            exp.UnixToTimeStr: lambda self,
-            e: f"CAST(FROM_UNIXTIME({self.sql(e, 'this')}) AS VARCHAR)",
+            exp.UnixToTimeStr: lambda self, e: (
+                f"CAST(FROM_UNIXTIME({self.sql(e, 'this')}) AS VARCHAR)"
+            ),
             exp.VariancePop: rename_func("VAR_POP"),
             exp.With: transforms.preprocess([transforms.add_recursive_cte_column_names]),
             exp.WithinGroup: transforms.preprocess(
@@ -682,8 +691,8 @@ class Presto(Dialect):
             from sqlglot.optimizer.annotate_types import annotate_types
 
             expression = annotate_types(expression, dialect=self.dialect)
-            values: t.List[str] = []
-            schema: t.List[str] = []
+            values: list[str] = []
+            schema: list[str] = []
             unknown_type = False
 
             for e in expression.expressions:
@@ -717,8 +726,8 @@ class Presto(Dialect):
             return f"START TRANSACTION{modes}"
 
         def offset_limit_modifiers(
-            self, expression: exp.Expression, fetch: bool, limit: t.Optional[exp.Fetch | exp.Limit]
-        ) -> t.List[str]:
+            self, expression: exp.Expression, fetch: bool, limit: exp.Fetch | exp.Limit | None
+        ) -> list[str]:
             return [
                 self.sql(expression, "offset"),
                 self.sql(limit),

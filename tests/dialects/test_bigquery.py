@@ -1,7 +1,7 @@
-from unittest import mock
 import datetime
-import pytz
+from unittest import mock
 
+import pytz
 from sqlglot import (
     ErrorLevel,
     ParseError,
@@ -9,14 +9,15 @@ from sqlglot import (
     UnsupportedError,
     exp,
     parse,
-    transpile,
     parse_one,
+    transpile,
 )
 from sqlglot.helper import logger as helper_logger
-from sqlglot.parser import logger as parser_logger
-from tests.dialects.test_dialect import Validator
 from sqlglot.optimizer.annotate_types import annotate_types
 from sqlglot.optimizer.qualify import qualify
+from sqlglot.parser import logger as parser_logger
+
+from tests.dialects.test_dialect import Validator
 
 
 class TestBigQuery(Validator):

@@ -1,4 +1,5 @@
-from sqlglot import exp, UnsupportedError, ParseError, parse_one
+from sqlglot import ParseError, UnsupportedError, exp, parse_one
+
 from tests.dialects.test_dialect import Validator
 
 

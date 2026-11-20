@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import typing as t
-
 from sqlglot import exp
 from sqlglot.dialects.dialect import (
     approx_count_distinct_sql,
     arrow_json_extract_sql,
     build_timestamp_trunc,
-    rename_func,
-    unit_to_str,
     inline_array_sql,
     property_sql,
+    rename_func,
+    unit_to_str,
 )
 from sqlglot.dialects.mysql import MySQL
 from sqlglot.helper import seq_get
@@ -73,7 +71,7 @@ class StarRocks(MySQL):
 
             return create
 
-        def _parse_unnest(self, with_alias: bool = True) -> t.Optional[exp.Unnest]:
+        def _parse_unnest(self, with_alias: bool = True) -> exp.Unnest | None:
             unnest = super()._parse_unnest(with_alias=with_alias)
 
             if unnest:
@@ -122,7 +120,7 @@ class StarRocks(MySQL):
         EXCEPT_INTERSECT_SUPPORT_ALL_CLAUSE = False
         JSON_TYPE_REQUIRED_FOR_EXTRACTION = False
         VARCHAR_REQUIRES_SIZE = False
-        PARSE_JSON_NAME: t.Optional[str] = "PARSE_JSON"
+        PARSE_JSON_NAME: str | None = "PARSE_JSON"
         WITH_PROPERTIES_PREFIX = "PROPERTIES"
 
         CAST_MAPPING = {}

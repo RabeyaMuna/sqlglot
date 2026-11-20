@@ -12,7 +12,7 @@ from sqlglot.trie import TrieResult, in_trie, new_trie
 if t.TYPE_CHECKING:
     from sqlglot.dialects.dialect import DialectType
 
-    ColumnMapping = t.Union[t.Dict, str, t.List]
+    ColumnMapping = t.Union[dict, str, list]
 
 
 class Schema(abc.ABC):
@@ -24,9 +24,9 @@ class Schema(abc.ABC):
     def add_table(
         self,
         table: exp.Table | str,
-        column_mapping: t.Optional[ColumnMapping] = None,
+        column_mapping: ColumnMapping | None = None,
         dialect: DialectType = None,
-        normalize: t.Optional[bool] = None,
+        normalize: bool | None = None,
         match_depth: bool = True,
     ) -> None:
         """
@@ -47,7 +47,7 @@ class Schema(abc.ABC):
         table: exp.Table | str,
         only_visible: bool = False,
         dialect: DialectType = None,
-        normalize: t.Optional[bool] = None,
+        normalize: bool | None = None,
     ) -> t.Sequence[str]:
         """
         Get the column names for a table.
@@ -68,7 +68,7 @@ class Schema(abc.ABC):
         table: exp.Table | str,
         column: exp.Column | str,
         dialect: DialectType = None,
-        normalize: t.Optional[bool] = None,
+        normalize: bool | None = None,
     ) -> exp.DataType:
         """
         Get the `sqlglot.exp.DataType` type of a column in the schema.
@@ -88,7 +88,7 @@ class Schema(abc.ABC):
         table: exp.Table | str,
         column: exp.Column | str,
         dialect: DialectType = None,
-        normalize: t.Optional[bool] = None,
+        normalize: bool | None = None,
     ) -> bool:
         """
         Returns whether `column` appears in `table`'s schema.
@@ -107,7 +107,7 @@ class Schema(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def supported_table_args(self) -> t.Tuple[str, ...]:
+    def supported_table_args(self) -> tuple[str, ...]:
         """
         Table arguments this schema support, e.g. `("this", "db", "catalog")`
         """
@@ -121,13 +121,13 @@ class Schema(abc.ABC):
 class AbstractMappingSchema:
     def __init__(
         self,
-        mapping: t.Optional[t.Dict] = None,
+        mapping: dict | None = None,
     ) -> None:
         self.mapping = mapping or {}
         self.mapping_trie = new_trie(
             tuple(reversed(t)) for t in flatten_schema(self.mapping, depth=self.depth())
         )
-        self._supported_table_args: t.Tuple[str, ...] = tuple()
+        self._supported_table_args: tuple[str, ...] = tuple()
 
     @property
     def empty(self) -> bool:
@@ -137,7 +137,7 @@ class AbstractMappingSchema:
         return dict_depth(self.mapping)
 
     @property
-    def supported_table_args(self) -> t.Tuple[str, ...]:
+    def supported_table_args(self) -> tuple[str, ...]:
         if not self._supported_table_args and self.mapping:
             depth = self.depth()
 
@@ -150,12 +150,12 @@ class AbstractMappingSchema:
 
         return self._supported_table_args
 
-    def table_parts(self, table: exp.Table) -> t.List[str]:
+    def table_parts(self, table: exp.Table) -> list[str]:
         return [part.name for part in reversed(table.parts)]
 
     def find(
         self, table: exp.Table, raise_on_missing: bool = True, ensure_data_types: bool = False
-    ) -> t.Optional[t.Any]:
+    ) -> t.Any | None:
         """
         Returns the schema of a given table.
 
@@ -187,8 +187,8 @@ class AbstractMappingSchema:
         return self.nested_get(parts, raise_on_missing=raise_on_missing)
 
     def nested_get(
-        self, parts: t.Sequence[str], d: t.Optional[t.Dict] = None, raise_on_missing=True
-    ) -> t.Optional[t.Any]:
+        self, parts: t.Sequence[str], d: dict | None = None, raise_on_missing=True
+    ) -> t.Any | None:
         return nested_get(
             d or self.mapping,
             *zip(self.supported_table_args, reversed(parts)),
@@ -217,15 +217,15 @@ class MappingSchema(AbstractMappingSchema, Schema):
 
     def __init__(
         self,
-        schema: t.Optional[t.Dict] = None,
-        visible: t.Optional[t.Dict] = None,
+        schema: dict | None = None,
+        visible: dict | None = None,
         dialect: DialectType = None,
         normalize: bool = True,
     ) -> None:
         self.dialect = dialect
         self.visible = {} if visible is None else visible
         self.normalize = normalize
-        self._type_mapping_cache: t.Dict[str, exp.DataType] = {}
+        self._type_mapping_cache: dict[str, exp.DataType] = {}
         self._depth = 0
         schema = {} if schema is None else schema
 
@@ -242,7 +242,7 @@ class MappingSchema(AbstractMappingSchema, Schema):
 
     def find(
         self, table: exp.Table, raise_on_missing: bool = True, ensure_data_types: bool = False
-    ) -> t.Optional[t.Any]:
+    ) -> t.Any | None:
         schema = super().find(
             table, raise_on_missing=raise_on_missing, ensure_data_types=ensure_data_types
         )
@@ -268,9 +268,9 @@ class MappingSchema(AbstractMappingSchema, Schema):
     def add_table(
         self,
         table: exp.Table | str,
-        column_mapping: t.Optional[ColumnMapping] = None,
+        column_mapping: ColumnMapping | None = None,
         dialect: DialectType = None,
-        normalize: t.Optional[bool] = None,
+        normalize: bool | None = None,
         match_depth: bool = True,
     ) -> None:
         """
@@ -311,8 +311,8 @@ class MappingSchema(AbstractMappingSchema, Schema):
         table: exp.Table | str,
         only_visible: bool = False,
         dialect: DialectType = None,
-        normalize: t.Optional[bool] = None,
-    ) -> t.List[str]:
+        normalize: bool | None = None,
+    ) -> list[str]:
         normalized_table = self._normalize_table(table, dialect=dialect, normalize=normalize)
 
         schema = self.find(normalized_table)
@@ -330,7 +330,7 @@ class MappingSchema(AbstractMappingSchema, Schema):
         table: exp.Table | str,
         column: exp.Column | str,
         dialect: DialectType = None,
-        normalize: t.Optional[bool] = None,
+        normalize: bool | None = None,
     ) -> exp.DataType:
         normalized_table = self._normalize_table(table, dialect=dialect, normalize=normalize)
 
@@ -354,7 +354,7 @@ class MappingSchema(AbstractMappingSchema, Schema):
         table: exp.Table | str,
         column: exp.Column | str,
         dialect: DialectType = None,
-        normalize: t.Optional[bool] = None,
+        normalize: bool | None = None,
     ) -> bool:
         normalized_table = self._normalize_table(table, dialect=dialect, normalize=normalize)
 
@@ -365,7 +365,7 @@ class MappingSchema(AbstractMappingSchema, Schema):
         table_schema = self.find(normalized_table, raise_on_missing=False)
         return normalized_column_name in table_schema if table_schema else False
 
-    def _normalize(self, schema: t.Dict) -> t.Dict:
+    def _normalize(self, schema: dict) -> dict:
         """
         Normalizes all identifiers in the schema.
 
@@ -375,7 +375,7 @@ class MappingSchema(AbstractMappingSchema, Schema):
         Returns:
             The normalized schema mapping.
         """
-        normalized_mapping: t.Dict = {}
+        normalized_mapping: dict = {}
         flattened_schema = flatten_schema(schema)
         error_msg = "Table {} must match the schema's nesting level: {}."
 
@@ -407,7 +407,7 @@ class MappingSchema(AbstractMappingSchema, Schema):
         self,
         table: exp.Table | str,
         dialect: DialectType = None,
-        normalize: t.Optional[bool] = None,
+        normalize: bool | None = None,
     ) -> exp.Table:
         dialect = dialect or self.dialect
         normalize = self.normalize if normalize is None else normalize
@@ -428,7 +428,7 @@ class MappingSchema(AbstractMappingSchema, Schema):
         name: str | exp.Identifier,
         dialect: DialectType = None,
         is_table: bool = False,
-        normalize: t.Optional[bool] = None,
+        normalize: bool | None = None,
     ) -> str:
         return normalize_name(
             name,
@@ -472,7 +472,7 @@ def normalize_name(
     identifier: str | exp.Identifier,
     dialect: DialectType = None,
     is_table: bool = False,
-    normalize: t.Optional[bool] = True,
+    normalize: bool | None = True,
 ) -> exp.Identifier:
     if isinstance(identifier, str):
         identifier = exp.parse_identifier(identifier, dialect=dialect)
@@ -485,14 +485,14 @@ def normalize_name(
     return Dialect.get_or_raise(dialect).normalize_identifier(identifier)
 
 
-def ensure_schema(schema: Schema | t.Optional[t.Dict], **kwargs: t.Any) -> Schema:
+def ensure_schema(schema: Schema | dict | None, **kwargs: t.Any) -> Schema:
     if isinstance(schema, Schema):
         return schema
 
     return MappingSchema(schema, **kwargs)
 
 
-def ensure_column_mapping(mapping: t.Optional[ColumnMapping]) -> t.Dict:
+def ensure_column_mapping(mapping: ColumnMapping | None) -> dict:
     if mapping is None:
         return {}
     elif isinstance(mapping, dict):
@@ -510,8 +510,8 @@ def ensure_column_mapping(mapping: t.Optional[ColumnMapping]) -> t.Dict:
 
 
 def flatten_schema(
-    schema: t.Dict, depth: t.Optional[int] = None, keys: t.Optional[t.List[str]] = None
-) -> t.List[t.List[str]]:
+    schema: dict, depth: int | None = None, keys: list[str] | None = None
+) -> list[list[str]]:
     tables = []
     keys = keys or []
     depth = dict_depth(schema) - 1 if depth is None else depth
@@ -525,9 +525,7 @@ def flatten_schema(
     return tables
 
 
-def nested_get(
-    d: t.Dict, *path: t.Tuple[str, str], raise_on_missing: bool = True
-) -> t.Optional[t.Any]:
+def nested_get(d: dict, *path: tuple[str, str], raise_on_missing: bool = True) -> t.Any | None:
     """
     Get a value for a nested dictionary.
 
@@ -551,7 +549,7 @@ def nested_get(
     return d
 
 
-def nested_set(d: t.Dict, keys: t.Sequence[str], value: t.Any) -> t.Dict:
+def nested_set(d: dict, keys: t.Sequence[str], value: t.Any) -> dict:
     """
     In-place set a value for a nested dictionary
 

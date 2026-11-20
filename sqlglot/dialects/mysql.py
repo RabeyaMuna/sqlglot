@@ -7,9 +7,11 @@ from sqlglot.dialects.dialect import (
     Dialect,
     NormalizationStrategy,
     arrow_json_extract_sql,
+    build_date_delta,
+    build_date_delta_with_interval,
+    build_formatted_time,
     date_add_interval_sql,
     datestrtodate_sql,
-    build_formatted_time,
     isnull_to_is_null,
     length_or_char_length_sql,
     max_or_greatest,
@@ -19,13 +21,11 @@ from sqlglot.dialects.dialect import (
     no_pivot_sql,
     no_tablesample_sql,
     no_trycast_sql,
-    build_date_delta,
-    build_date_delta_with_interval,
     rename_func,
     strposition_sql,
-    unit_to_var,
-    trim_sql,
     timestrtotime_sql,
+    trim_sql,
+    unit_to_var,
 )
 from sqlglot.generator import unsupported_args
 from sqlglot.helper import seq_get
@@ -81,7 +81,7 @@ def _has_time_specifier(date_format: str) -> bool:
     return False
 
 
-def _str_to_date(args: t.List) -> exp.StrToDate | exp.StrToTime:
+def _str_to_date(args: list) -> exp.StrToDate | exp.StrToTime:
     mysql_date_format = seq_get(args, 1)
     date_format = MySQL.format_time(mysql_date_format)
     this = seq_get(args, 0)
@@ -131,8 +131,8 @@ def _ts_or_ds_to_date_sql(self: MySQL.Generator, expression: exp.TsOrDsToDate) -
 
 
 def _remove_ts_or_ds_to_date(
-    to_sql: t.Optional[t.Callable[[MySQL.Generator, exp.Expression], str]] = None,
-    args: t.Tuple[str, ...] = ("this",),
+    to_sql: t.Callable[[MySQL.Generator, exp.Expression], str] | None = None,
+    args: tuple[str, ...] = ("this",),
 ) -> t.Callable[[MySQL.Generator, exp.Func], str]:
     def func(self: MySQL.Generator, expression: exp.Func) -> str:
         for arg_key in args:
@@ -511,7 +511,7 @@ class MySQL(Dialect):
 
             return this
 
-        def _parse_primary_key_part(self) -> t.Optional[exp.Expression]:
+        def _parse_primary_key_part(self) -> exp.Expression | None:
             this = self._parse_id_var()
             if not self._match(TokenType.L_PAREN):
                 return this
@@ -520,9 +520,7 @@ class MySQL(Dialect):
             self._match_r_paren()
             return self.expression(exp.ColumnPrefix, this=this, expression=expression)
 
-        def _parse_index_constraint(
-            self, kind: t.Optional[str] = None
-        ) -> exp.IndexColumnConstraint:
+        def _parse_index_constraint(self, kind: str | None = None) -> exp.IndexColumnConstraint:
             if kind:
                 self._match_texts(("INDEX", "KEY"))
 
@@ -572,8 +570,8 @@ class MySQL(Dialect):
             self,
             this: str,
             target: bool | str = False,
-            full: t.Optional[bool] = None,
-            global_: t.Optional[bool] = None,
+            full: bool | None = None,
+            global_: bool | None = None,
         ) -> exp.Show:
             if target:
                 if isinstance(target, str):
@@ -635,7 +633,7 @@ class MySQL(Dialect):
 
         def _parse_oldstyle_limit(
             self,
-        ) -> t.Tuple[t.Optional[exp.Expression], t.Optional[exp.Expression]]:
+        ) -> tuple[exp.Expression | None, exp.Expression | None]:
             limit = None
             offset = None
             if self._match_text_seq("LIMIT"):
@@ -663,7 +661,7 @@ class MySQL(Dialect):
 
         def _parse_type(
             self, parse_interval: bool = True, fallback_to_identifier: bool = False
-        ) -> t.Optional[exp.Expression]:
+        ) -> exp.Expression | None:
             # mysql binary is special and can work anywhere, even in order by operations
             # it operates like a no paren func
             if self._match(TokenType.BINARY, advance=False):
@@ -676,9 +674,9 @@ class MySQL(Dialect):
                 parse_interval=parse_interval, fallback_to_identifier=fallback_to_identifier
             )
 
-        def _parse_group_concat(self) -> t.Optional[exp.Expression]:
+        def _parse_group_concat(self) -> exp.Expression | None:
             def concat_exprs(
-                node: t.Optional[exp.Expression], exprs: t.List[exp.Expression]
+                node: exp.Expression | None, exprs: list[exp.Expression]
             ) -> exp.Expression:
                 if isinstance(node, exp.Distinct) and len(node.expressions) > 1:
                     concat_exprs = [
@@ -751,7 +749,7 @@ class MySQL(Dialect):
         JSON_PATH_BRACKETED_KEY_SUPPORTED = False
         JSON_KEY_VALUE_PAIR_SEP = ","
         SUPPORTS_TO_NUMBER = False
-        PARSE_JSON_NAME: t.Optional[str] = None
+        PARSE_JSON_NAME: str | None = None
         PAD_FILL_PATTERN_IS_REQUIRED = True
         WRAP_DERIVED_VALUES = False
         VARCHAR_REQUIRES_SIZE = True
@@ -772,8 +770,9 @@ class MySQL(Dialect):
             exp.DayOfMonth: _remove_ts_or_ds_to_date(rename_func("DAYOFMONTH")),
             exp.DayOfWeek: _remove_ts_or_ds_to_date(rename_func("DAYOFWEEK")),
             exp.DayOfYear: _remove_ts_or_ds_to_date(rename_func("DAYOFYEAR")),
-            exp.GroupConcat: lambda self,
-            e: f"""GROUP_CONCAT({self.sql(e, "this")} SEPARATOR {self.sql(e, "separator") or "','"})""",
+            exp.GroupConcat: lambda self, e: (
+                f"""GROUP_CONCAT({self.sql(e, "this")} SEPARATOR {self.sql(e, "separator") or "','"})"""
+            ),
             exp.ILike: no_ilike_sql,
             exp.JSONExtractScalar: arrow_json_extract_sql,
             exp.Length: length_or_char_length_sql,
@@ -1217,7 +1216,7 @@ class MySQL(Dialect):
         def jsonarraycontains_sql(self, expression: exp.JSONArrayContains) -> str:
             return f"{self.sql(expression, 'this')} MEMBER OF({self.sql(expression, 'expression')})"
 
-        def cast_sql(self, expression: exp.Cast, safe_prefix: t.Optional[str] = None) -> str:
+        def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
             if expression.to.this in self.TIMESTAMP_FUNC_TYPES:
                 return self.func("TIMESTAMP", expression.this)
 

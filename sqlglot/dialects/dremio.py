@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from sqlglot import expressions as exp
-from sqlglot import parser, generator, tokens
-from sqlglot.dialects.dialect import Dialect, build_formatted_time, unit_to_var
 import typing as t
+
+from sqlglot import expressions as exp
+from sqlglot import generator, parser, tokens
+from sqlglot.dialects.dialect import Dialect, build_formatted_time, unit_to_var
 
 DATE_DELTA = t.Union[
     exp.DateAdd,

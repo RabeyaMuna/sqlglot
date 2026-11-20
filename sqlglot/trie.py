@@ -10,7 +10,7 @@ class TrieResult(Enum):
     EXISTS = auto()
 
 
-def new_trie(keywords: t.Iterable[key], trie: t.Optional[t.Dict] = None) -> t.Dict:
+def new_trie(keywords: t.Iterable[key], trie: dict | None = None) -> dict:
     """
     Creates a new trie out of a collection of keywords.
 
@@ -40,7 +40,7 @@ def new_trie(keywords: t.Iterable[key], trie: t.Optional[t.Dict] = None) -> t.Di
     return trie
 
 
-def in_trie(trie: t.Dict, key: key) -> t.Tuple[TrieResult, t.Dict]:
+def in_trie(trie: dict, key: key) -> tuple[TrieResult, dict]:
     """
     Checks whether a key is in a trie.
 

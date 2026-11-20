@@ -5,6 +5,7 @@ import unittest
 from sqlglot import exp
 from sqlglot.errors import ParseError, TokenError
 from sqlglot.jsonpath import parse
+
 from tests.helpers import FIXTURES_DIR
 
 

@@ -60,7 +60,7 @@ def suggest_closest_match_and_fail(
     raise ValueError(f"Unknown {kind} '{word}'.{similar}")
 
 
-def seq_get(seq: t.Sequence[T], index: int) -> t.Optional[T]:
+def seq_get(seq: t.Sequence[T], index: int) -> T | None:
     """Returns the value in `seq` at position `index`, or `None` if `index` is out of bounds."""
     try:
         return seq[index]
@@ -69,15 +69,15 @@ def seq_get(seq: t.Sequence[T], index: int) -> t.Optional[T]:
 
 
 @t.overload
-def ensure_list(value: t.Collection[T]) -> t.List[T]: ...
+def ensure_list(value: t.Collection[T]) -> list[T]: ...
 
 
 @t.overload
-def ensure_list(value: None) -> t.List: ...
+def ensure_list(value: None) -> list: ...
 
 
 @t.overload
-def ensure_list(value: T) -> t.List[T]: ...
+def ensure_list(value: T) -> list[T]: ...
 
 
 def ensure_list(value):
@@ -139,9 +139,9 @@ def csv(*args: str, sep: str = ", ") -> str:
 
 def subclasses(
     module_name: str,
-    classes: t.Type | t.Tuple[t.Type, ...],
-    exclude: t.Type | t.Tuple[t.Type, ...] = (),
-) -> t.List[t.Type]:
+    classes: type | tuple[type, ...],
+    exclude: type | tuple[type, ...] = (),
+) -> list[type]:
     """
     Returns all subclasses for a collection of classes, possibly excluding some of them.
 
@@ -164,10 +164,10 @@ def subclasses(
 
 def apply_index_offset(
     this: exp.Expression,
-    expressions: t.List[E],
+    expressions: list[E],
     offset: int,
     dialect: DialectType = None,
-) -> t.List[E]:
+) -> list[E]:
     """
     Applies an offset to a given integer literal expression.
 
@@ -226,7 +226,7 @@ def while_changing(expression: Expression, func: t.Callable[[Expression], E]) ->
     Returns:
         The transformed expression.
     """
-    end_hash: t.Optional[int] = None
+    end_hash: int | None = None
 
     while True:
         # No need to walk the AST– we've already cached the hashes in the previous iteration
@@ -256,7 +256,7 @@ def while_changing(expression: Expression, func: t.Callable[[Expression], E]) ->
     return expression
 
 
-def tsort(dag: t.Dict[T, t.Set[T]]) -> t.List[T]:
+def tsort(dag: dict[T, set[T]]) -> list[T]:
     """
     Sorts a given directed acyclic graph in topological order.
 
@@ -362,7 +362,7 @@ def is_float(text: str) -> bool:
     return is_type(text, float)
 
 
-def is_type(text: str, target_type: t.Type) -> bool:
+def is_type(text: str, target_type: type) -> bool:
     try:
         target_type(text)
         return True
@@ -376,7 +376,7 @@ def name_sequence(prefix: str) -> t.Callable[[], str]:
     return lambda: f"{prefix}{next(sequence)}"
 
 
-def object_to_dict(obj: t.Any, **kwargs) -> t.Dict:
+def object_to_dict(obj: t.Any, **kwargs) -> dict:
     """Returns a dictionary created from an object's attributes."""
     return {
         **{k: v.copy() if hasattr(v, "copy") else copy(v) for k, v in vars(obj).items()},
@@ -386,7 +386,7 @@ def object_to_dict(obj: t.Any, **kwargs) -> t.Dict:
 
 def split_num_words(
     value: str, sep: str, min_num_words: int, fill_from_start: bool = True
-) -> t.List[t.Optional[str]]:
+) -> list[str | None]:
     """
     Perform a split on a value and return N words as a result with `None` used for words that don't exist.
 
@@ -458,7 +458,7 @@ def flatten(values: t.Iterable[t.Iterable[t.Any] | t.Any]) -> t.Iterator[t.Any]:
             yield value
 
 
-def dict_depth(d: t.Dict) -> int:
+def dict_depth(d: dict) -> int:
     """
     Get the nesting depth of a dictionary.
 
@@ -489,7 +489,7 @@ def first(it: t.Iterable[T]) -> T:
     return next(i for i in it)
 
 
-def to_bool(value: t.Optional[str | bool]) -> t.Optional[str | bool]:
+def to_bool(value: str | bool | None) -> str | bool | None:
     if isinstance(value, bool) or value is None:
         return value
 
@@ -503,7 +503,7 @@ def to_bool(value: t.Optional[str | bool]) -> t.Optional[str | bool]:
     return value
 
 
-def merge_ranges(ranges: t.List[t.Tuple[A, A]]) -> t.List[t.Tuple[A, A]]:
+def merge_ranges(ranges: list[tuple[A, A]]) -> list[tuple[A, A]]:
     """
     Merges a sequence of ranges, represented as tuples (low, high) whose values
     belong to some totally-ordered set.
@@ -550,7 +550,7 @@ def is_iso_datetime(text: str) -> bool:
 DATE_UNITS = {"day", "week", "month", "quarter", "year", "year_month"}
 
 
-def is_date_unit(expression: t.Optional[exp.Expression]) -> bool:
+def is_date_unit(expression: exp.Expression | None) -> bool:
     return expression is not None and expression.name.lower() in DATE_UNITS
 
 

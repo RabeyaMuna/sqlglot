@@ -4,7 +4,7 @@ import typing as t
 
 from sqlglot import exp, generator, parser, tokens
 from sqlglot.dialects import Dialect, Hive, Trino
-from sqlglot.tokens import TokenType, Token
+from sqlglot.tokens import Token, TokenType
 
 
 class Athena(Dialect):
@@ -51,19 +51,19 @@ class Athena(Dialect):
         self._hive = Hive(**kwargs)
         self._trino = Trino(**kwargs)
 
-    def tokenize(self, sql: str, **opts) -> t.List[Token]:
+    def tokenize(self, sql: str, **opts) -> list[Token]:
         opts["hive"] = self._hive
         opts["trino"] = self._trino
         return super().tokenize(sql, **opts)
 
-    def parse(self, sql: str, **opts) -> t.List[t.Optional[exp.Expression]]:
+    def parse(self, sql: str, **opts) -> list[exp.Expression | None]:
         opts["hive"] = self._hive
         opts["trino"] = self._trino
         return super().parse(sql, **opts)
 
     def parse_into(
         self, expression_type: exp.IntoType, sql: str, **opts
-    ) -> t.List[t.Optional[exp.Expression]]:
+    ) -> list[exp.Expression | None]:
         opts["hive"] = self._hive
         opts["trino"] = self._trino
         return super().parse_into(expression_type, sql, **opts)
@@ -101,7 +101,7 @@ class Athena(Dialect):
             self._hive_tokenizer = hive.tokenizer(*args, **{**kwargs, "dialect": hive})
             self._trino_tokenizer = _TrinoTokenizer(*args, **{**kwargs, "dialect": trino})
 
-        def tokenize(self, sql: str) -> t.List[Token]:
+        def tokenize(self, sql: str) -> list[Token]:
             tokens = super().tokenize(sql)
 
             if _tokenize_as_hive(tokens):
@@ -120,8 +120,8 @@ class Athena(Dialect):
             self._trino_parser = _TrinoParser(*args, **{**kwargs, "dialect": trino})
 
         def parse(
-            self, raw_tokens: t.List[Token], sql: t.Optional[str] = None
-        ) -> t.List[t.Optional[exp.Expression]]:
+            self, raw_tokens: list[Token], sql: str | None = None
+        ) -> list[exp.Expression | None]:
             if raw_tokens and raw_tokens[0].token_type == TokenType.HIVE_TOKEN_STREAM:
                 return self._hive_parser.parse(raw_tokens[1:], sql)
 
@@ -130,9 +130,9 @@ class Athena(Dialect):
         def parse_into(
             self,
             expression_types: exp.IntoType,
-            raw_tokens: t.List[Token],
-            sql: t.Optional[str] = None,
-        ) -> t.List[t.Optional[exp.Expression]]:
+            raw_tokens: list[Token],
+            sql: str | None = None,
+        ) -> list[exp.Expression | None]:
             if raw_tokens and raw_tokens[0].token_type == TokenType.HIVE_TOKEN_STREAM:
                 return self._hive_parser.parse_into(expression_types, raw_tokens[1:], sql)
 
@@ -157,7 +157,7 @@ class Athena(Dialect):
             return generator.generate(expression, copy=copy)
 
 
-def _tokenize_as_hive(tokens: t.List[Token]) -> bool:
+def _tokenize_as_hive(tokens: list[Token]) -> bool:
     if len(tokens) < 2:
         return False
 

@@ -5,14 +5,19 @@ import typing as t
 from sqlglot import exp, generator, parser, tokens, transforms
 from sqlglot.dialects.dialect import (
     DATE_ADD_OR_SUB,
-    Dialect,
     JSON_EXTRACT_TYPE,
+    Dialect,
+    Version,
     any_value_to_max_sql,
     binary_from_function,
     bool_xor_sql,
-    datestrtodate_sql,
     build_formatted_time,
+    build_json_extract_path,
+    build_timestamp_trunc,
+    count_if_to_sum,
+    datestrtodate_sql,
     filter_array_using_unnest,
+    groupconcat_sql,
     inline_array_sql,
     json_extract_segments,
     json_path_key_only_name,
@@ -24,19 +29,14 @@ from sqlglot.dialects.dialect import (
     no_paren_current_date_sql,
     no_pivot_sql,
     no_trycast_sql,
-    build_json_extract_path,
-    build_timestamp_trunc,
     rename_func,
     sha256_sql,
+    strposition_sql,
     struct_extract_sql,
     timestamptrunc_sql,
     timestrtotime_sql,
     trim_sql,
     ts_or_ds_add_cast,
-    strposition_sql,
-    count_if_to_sum,
-    groupconcat_sql,
-    Version,
 )
 from sqlglot.generator import unsupported_args
 from sqlglot.helper import is_int, seq_get
@@ -162,7 +162,7 @@ def _serial_to_generated(expression: exp.Expression) -> exp.Expression:
     return expression
 
 
-def _build_generate_series(args: t.List) -> exp.ExplodingGenerateSeries:
+def _build_generate_series(args: list) -> exp.ExplodingGenerateSeries:
     # The goal is to convert step values like '1 day' or INTERVAL '1 day' into INTERVAL '1' day
     # Note: postgres allows calls with just two arguments -- the "step" argument defaults to 1
     step = seq_get(args, 2)
@@ -175,7 +175,7 @@ def _build_generate_series(args: t.List) -> exp.ExplodingGenerateSeries:
     return exp.ExplodingGenerateSeries.from_arg_list(args)
 
 
-def _build_to_timestamp(args: t.List) -> exp.UnixToTime | exp.StrToTime:
+def _build_to_timestamp(args: list) -> exp.UnixToTime | exp.StrToTime:
     # TO_TIMESTAMP accepts either a single double argument or (text, text)
     if len(args) == 1:
         # https://www.postgresql.org/docs/current/functions-datetime.html#FUNCTIONS-DATETIME-TABLE
@@ -196,7 +196,7 @@ def _json_extract_sql(
     return _generate
 
 
-def _build_regexp_replace(args: t.List, dialect: DialectType = None) -> exp.RegexpReplace:
+def _build_regexp_replace(args: list, dialect: DialectType = None) -> exp.RegexpReplace:
     # The signature of REGEXP_REPLACE is:
     # regexp_replace(source, pattern, replacement [, start [, N ]] [, flags ])
     #
@@ -233,7 +233,7 @@ def _unix_to_time_sql(self: Postgres.Generator, expression: exp.UnixToTime) -> s
     )
 
 
-def _build_levenshtein_less_equal(args: t.List) -> exp.Levenshtein:
+def _build_levenshtein_less_equal(args: list) -> exp.Levenshtein:
     # Postgres has two signatures for levenshtein_less_equal function, but in both cases
     # max_dist is the last argument
     # levenshtein_less_equal(source, target, ins_cost, del_cost, sub_cost, max_d)
@@ -458,7 +458,7 @@ class Postgres(Dialect):
             )([this, path]),
         }
 
-        def _parse_query_parameter(self) -> t.Optional[exp.Expression]:
+        def _parse_query_parameter(self) -> exp.Expression | None:
             this = (
                 self._parse_wrapped(self._parse_id_var)
                 if self._match(TokenType.L_PAREN, advance=False)
@@ -467,7 +467,7 @@ class Postgres(Dialect):
             self._match_text_seq("S")
             return self.expression(exp.Placeholder, this=this)
 
-        def _parse_operator(self, this: t.Optional[exp.Expression]) -> t.Optional[exp.Expression]:
+        def _parse_operator(self, this: exp.Expression | None) -> exp.Expression | None:
             while True:
                 if not self._match(TokenType.L_PAREN):
                     break
@@ -500,7 +500,7 @@ class Postgres(Dialect):
 
             return self.expression(exp.Extract, this=part, expression=value)
 
-        def _parse_unique_key(self) -> t.Optional[exp.Expression]:
+        def _parse_unique_key(self) -> exp.Expression | None:
             return None
 
         def _parse_jsonb_exists(self) -> exp.JSONBExists:
@@ -525,9 +525,7 @@ class Postgres(Dialect):
 
             return this
 
-        def _parse_user_defined_type(
-            self, identifier: exp.Identifier
-        ) -> t.Optional[exp.Expression]:
+        def _parse_user_defined_type(self, identifier: exp.Identifier) -> exp.Expression | None:
             udt_type: exp.Identifier | exp.Dot = identifier
 
             while self._match(TokenType.DOT):
@@ -777,7 +775,7 @@ class Postgres(Dialect):
 
             return super().datatype_sql(expression)
 
-        def cast_sql(self, expression: exp.Cast, safe_prefix: t.Optional[str] = None) -> str:
+        def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
             this = expression.this
 
             # Postgres casts DIV() to decimal for transpilation but when roundtripping it's superfluous

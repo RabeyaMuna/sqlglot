@@ -21,7 +21,7 @@ from sqlglot.generator import unsupported_args
 from sqlglot.tokens import TokenType
 
 
-def _build_strftime(args: t.List) -> exp.Anonymous | exp.TimeToStr:
+def _build_strftime(args: list) -> exp.Anonymous | exp.TimeToStr:
     if len(args) == 1:
         args.append(exp.CurrentTimestamp())
     if len(args) == 2:
@@ -249,7 +249,7 @@ class SQLite(Dialect):
             modifier = f"'{modifier} {unit.name}'" if unit else f"'{modifier}'"
             return self.func("DATE", expression.this, modifier)
 
-        def cast_sql(self, expression: exp.Cast, safe_prefix: t.Optional[str] = None) -> str:
+        def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
             if expression.is_type("date"):
                 return self.func("DATE", expression.this)
 

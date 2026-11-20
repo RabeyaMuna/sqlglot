@@ -1,6 +1,9 @@
 from __future__ import annotations
-import typing as t
+
 import datetime
+import typing as t
+from collections import defaultdict
+
 from sqlglot import exp, generator, parser, tokens
 from sqlglot.dialects.dialect import (
     Dialect,
@@ -8,30 +11,29 @@ from sqlglot.dialects.dialect import (
     arg_max_or_min_no_count,
     build_date_delta,
     build_formatted_time,
+    build_json_extract_path,
     inline_array_sql,
     json_extract_segments,
     json_path_key_only_name,
     length_or_char_length_sql,
     no_pivot_sql,
-    build_json_extract_path,
-    rename_func,
     remove_from_array_using_filter,
+    rename_func,
     sha256_sql,
     strposition_sql,
-    var_map_sql,
     timestamptrunc_sql,
-    unit_to_var,
     trim_sql,
+    unit_to_var,
+    var_map_sql,
 )
-from sqlglot.generator import Generator
+from sqlglot.generator import Generator, unsupported_args
 from sqlglot.helper import is_int, seq_get
 from sqlglot.tokens import Token, TokenType
-from sqlglot.generator import unsupported_args
 
 DATEΤΙΜΕ_DELTA = t.Union[exp.DateAdd, exp.DateDiff, exp.DateSub, exp.TimestampSub, exp.TimestampAdd]
 
 
-def _build_date_format(args: t.List) -> exp.TimeToStr:
+def _build_date_format(args: list) -> exp.TimeToStr:
     expr = build_formatted_time(exp.TimeToStr, "clickhouse")(args)
 
     timezone = seq_get(args, 2)
@@ -79,14 +81,14 @@ def _quantile_sql(self: ClickHouse.Generator, expression: exp.Quantile) -> str:
     return func + args
 
 
-def _build_count_if(args: t.List) -> exp.CountIf | exp.CombinedAggFunc:
+def _build_count_if(args: list) -> exp.CountIf | exp.CombinedAggFunc:
     if len(args) == 1:
         return exp.CountIf(this=seq_get(args, 0))
 
     return exp.CombinedAggFunc(this="countIf", expressions=args)
 
 
-def _build_str_to_date(args: t.List) -> exp.Cast | exp.Anonymous:
+def _build_str_to_date(args: list) -> exp.Cast | exp.Anonymous:
     if len(args) == 3:
         return exp.Anonymous(this="STR_TO_DATE", expressions=args)
 
@@ -187,7 +189,7 @@ class ClickHouse(Dialect):
     NULL_ORDERING = "nulls_are_last"
     SUPPORTS_USER_DEFINED_TYPES = False
     SAFE_DIVISION = True
-    LOG_BASE_FIRST: t.Optional[bool] = None
+    LOG_BASE_FIRST: bool | None = None
     FORCE_EARLY_ALIAS_REF_EXPANSION = True
     PRESERVE_ORIGINAL_NAMES = True
     NUMBERS_CAN_BE_UNDERSCORE_SEPARATED = True
@@ -203,13 +205,13 @@ class ClickHouse(Dialect):
 
     CREATABLE_KIND_MAPPING = {"DATABASE": "SCHEMA"}
 
-    SET_OP_DISTINCT_BY_DEFAULT: t.Dict[t.Type[exp.Expression], t.Optional[bool]] = {
+    SET_OP_DISTINCT_BY_DEFAULT: dict[type[exp.Expression], bool | None] = {
         exp.Except: False,
         exp.Intersect: False,
         exp.Union: None,
     }
 
-    def generate_values_aliases(self, expression: exp.Values) -> t.List[exp.Identifier]:
+    def generate_values_aliases(self, expression: exp.Values) -> list[exp.Identifier]:
         # Clickhouse allows VALUES to have an embedded structure e.g:
         # VALUES('person String, place String', ('Noah', 'Paris'), ...)
         # In this case, we don't want to qualify the columns
@@ -586,12 +588,12 @@ class ClickHouse(Dialect):
             )
 
         # https://clickhouse.com/docs/en/sql-reference/statements/create/function
-        def _parse_user_defined_function_expression(self) -> t.Optional[exp.Expression]:
+        def _parse_user_defined_function_expression(self) -> exp.Expression | None:
             return self._parse_lambda()
 
         def _parse_types(
             self, check_func: bool = False, schema: bool = False, allow_identifiers: bool = True
-        ) -> t.Optional[exp.Expression]:
+        ) -> exp.Expression | None:
             dtype = super()._parse_types(
                 check_func=check_func, schema=schema, allow_identifiers=allow_identifiers
             )
@@ -622,7 +624,7 @@ class ClickHouse(Dialect):
                 exp.Anonymous, this="extract", expressions=[this, self._parse_bitwise()]
             )
 
-        def _parse_assignment(self) -> t.Optional[exp.Expression]:
+        def _parse_assignment(self) -> exp.Expression | None:
             this = super()._parse_assignment()
 
             if self._match(TokenType.PLACEHOLDER):
@@ -635,7 +637,7 @@ class ClickHouse(Dialect):
 
             return this
 
-        def _parse_query_parameter(self) -> t.Optional[exp.Expression]:
+        def _parse_query_parameter(self) -> exp.Expression | None:
             """
             Parse a placeholder expression like SELECT {abc: UInt32} or FROM {table: Identifier}
             https://clickhouse.com/docs/en/sql-reference/syntax#defining-and-using-query-parameters
@@ -659,9 +661,7 @@ class ClickHouse(Dialect):
 
             return self.expression(exp.Placeholder, this=this, kind=kind)
 
-        def _parse_bracket(
-            self, this: t.Optional[exp.Expression] = None
-        ) -> t.Optional[exp.Expression]:
+        def _parse_bracket(self, this: exp.Expression | None = None) -> exp.Expression | None:
             l_brace = self._match(TokenType.L_BRACE, advance=False)
             bracket = super()._parse_bracket(this)
 
@@ -678,12 +678,12 @@ class ClickHouse(Dialect):
 
             return bracket
 
-        def _parse_in(self, this: t.Optional[exp.Expression], is_global: bool = False) -> exp.In:
+        def _parse_in(self, this: exp.Expression | None, is_global: bool = False) -> exp.In:
             this = super()._parse_in(this)
             this.set("is_global", is_global)
             return this
 
-        def _parse_global_in(self, this: t.Optional[exp.Expression]) -> exp.Not | exp.In:
+        def _parse_global_in(self, this: exp.Expression | None) -> exp.Not | exp.In:
             is_negated = self._match(TokenType.NOT)
             this = self._match(TokenType.IN) and self._parse_in(this, is_global=True)
             return self.expression(exp.Not, this=this) if is_negated else this
@@ -692,12 +692,12 @@ class ClickHouse(Dialect):
             self,
             schema: bool = False,
             joins: bool = False,
-            alias_tokens: t.Optional[t.Collection[TokenType]] = None,
+            alias_tokens: t.Collection[TokenType] | None = None,
             parse_bracket: bool = False,
             is_db_reference: bool = False,
             parse_partition: bool = False,
             consume_pipe: bool = False,
-        ) -> t.Optional[exp.Expression]:
+        ) -> exp.Expression | None:
             this = super()._parse_table(
                 schema=schema,
                 joins=joins,
@@ -722,9 +722,9 @@ class ClickHouse(Dialect):
             return super()._parse_position(haystack_first=True)
 
         # https://clickhouse.com/docs/en/sql-reference/statements/select/with/
-        def _parse_cte(self) -> t.Optional[exp.CTE]:
+        def _parse_cte(self) -> exp.CTE | None:
             # WITH <identifier> AS <subquery expression>
-            cte: t.Optional[exp.CTE] = self._try_parse(super()._parse_cte)
+            cte: exp.CTE | None = self._try_parse(super()._parse_cte)
 
             if not cte:
                 # WITH <expression> AS <identifier>
@@ -739,7 +739,7 @@ class ClickHouse(Dialect):
 
         def _parse_join_parts(
             self,
-        ) -> t.Tuple[t.Optional[Token], t.Optional[Token], t.Optional[Token]]:
+        ) -> tuple[Token | None, Token | None, Token | None]:
             is_global = self._match(TokenType.GLOBAL) and self._prev
             kind_pre = self._match_set(self.JOIN_KINDS, advance=False) and self._prev
 
@@ -756,7 +756,7 @@ class ClickHouse(Dialect):
 
         def _parse_join(
             self, skip_join_token: bool = False, parse_bracket: bool = False
-        ) -> t.Optional[exp.Join]:
+        ) -> exp.Join | None:
             join = super()._parse_join(skip_join_token=skip_join_token, parse_bracket=True)
             if join:
                 join.set("global", join.args.pop("method", None))
@@ -771,11 +771,11 @@ class ClickHouse(Dialect):
 
         def _parse_function(
             self,
-            functions: t.Optional[t.Dict[str, t.Callable]] = None,
+            functions: dict[str, t.Callable] | None = None,
             anonymous: bool = False,
             optional_parens: bool = True,
             any_token: bool = False,
-        ) -> t.Optional[exp.Expression]:
+        ) -> exp.Expression | None:
             expr = super()._parse_function(
                 functions=functions,
                 anonymous=anonymous,
@@ -799,7 +799,7 @@ class ClickHouse(Dialect):
                     "expressions": anon_func.expressions,
                 }
                 if parts[1]:
-                    exp_class: t.Type[exp.Expression] = (
+                    exp_class: type[exp.Expression] = (
                         exp.CombinedParameterizedAgg if params else exp.CombinedAggFunc
                     )
                 else:
@@ -824,9 +824,7 @@ class ClickHouse(Dialect):
 
             return expr
 
-        def _parse_func_params(
-            self, this: t.Optional[exp.Func] = None
-        ) -> t.Optional[t.List[exp.Expression]]:
+        def _parse_func_params(self, this: exp.Func | None = None) -> list[exp.Expression] | None:
             if self._match_pair(TokenType.R_PAREN, TokenType.L_PAREN):
                 return self._parse_csv(self._parse_lambda)
 
@@ -844,7 +842,7 @@ class ClickHouse(Dialect):
                 return self.expression(exp.Quantile, this=params[0], quantile=this)
             return self.expression(exp.Quantile, this=this, quantile=exp.Literal.number(0.5))
 
-        def _parse_wrapped_id_vars(self, optional: bool = False) -> t.List[exp.Expression]:
+        def _parse_wrapped_id_vars(self, optional: bool = False) -> list[exp.Expression]:
             return super()._parse_wrapped_id_vars(optional=True)
 
         def _parse_primary_key(
@@ -854,7 +852,7 @@ class ClickHouse(Dialect):
                 wrapped_optional=wrapped_optional or in_props, in_props=in_props
             )
 
-        def _parse_on_property(self) -> t.Optional[exp.Expression]:
+        def _parse_on_property(self) -> exp.Expression | None:
             index = self._index
             if self._match_text_seq("CLUSTER"):
                 this = self._parse_string() or self._parse_id_var()
@@ -864,9 +862,7 @@ class ClickHouse(Dialect):
                     self._retreat(index)
             return None
 
-        def _parse_index_constraint(
-            self, kind: t.Optional[str] = None
-        ) -> exp.IndexColumnConstraint:
+        def _parse_index_constraint(self, kind: str | None = None) -> exp.IndexColumnConstraint:
             # INDEX name1 expr TYPE type1(args) GRANULARITY value
             this = self._parse_id_var()
             expression = self._parse_assignment()
@@ -885,14 +881,14 @@ class ClickHouse(Dialect):
                 granularity=granularity,
             )
 
-        def _parse_partition(self) -> t.Optional[exp.Partition]:
+        def _parse_partition(self) -> exp.Partition | None:
             # https://clickhouse.com/docs/en/sql-reference/statements/alter/partition#how-to-set-partition-expression
             if not self._match(TokenType.PARTITION):
                 return None
 
             if self._match_text_seq("ID"):
                 # Corresponds to the PARTITION ID <string_value> syntax
-                expressions: t.List[exp.Expression] = [
+                expressions: list[exp.Expression] = [
                     self.expression(exp.PartitionId, this=self._parse_string())
                 ]
             else:
@@ -900,7 +896,7 @@ class ClickHouse(Dialect):
 
             return self.expression(exp.Partition, expressions=expressions)
 
-        def _parse_alter_table_replace(self) -> t.Optional[exp.Expression]:
+        def _parse_alter_table_replace(self) -> exp.Expression | None:
             partition = self._parse_partition()
 
             if not partition or not self._match(TokenType.FROM):
@@ -910,7 +906,7 @@ class ClickHouse(Dialect):
                 exp.ReplacePartition, expression=partition, source=self._parse_table_parts()
             )
 
-        def _parse_projection_def(self) -> t.Optional[exp.ProjectionDef]:
+        def _parse_projection_def(self) -> exp.ProjectionDef | None:
             if not self._match_text_seq("PROJECTION"):
                 return None
 
@@ -920,12 +916,12 @@ class ClickHouse(Dialect):
                 expression=self._parse_wrapped(self._parse_statement),
             )
 
-        def _parse_constraint(self) -> t.Optional[exp.Expression]:
+        def _parse_constraint(self) -> exp.Expression | None:
             return super()._parse_constraint() or self._parse_projection_def()
 
         def _parse_alias(
-            self, this: t.Optional[exp.Expression], explicit: bool = False
-        ) -> t.Optional[exp.Expression]:
+            self, this: exp.Expression | None, explicit: bool = False
+        ) -> exp.Expression | None:
             # In clickhouse "SELECT <expr> APPLY(...)" is a query modifier,
             # so "APPLY" shouldn't be parsed as <expr>'s alias. However, "SELECT <expr> apply" is a valid alias
             if self._match_pair(TokenType.APPLY, TokenType.L_PAREN, advance=False):
@@ -933,7 +929,7 @@ class ClickHouse(Dialect):
 
             return super()._parse_alias(this=this, explicit=explicit)
 
-        def _parse_expression(self) -> t.Optional[exp.Expression]:
+        def _parse_expression(self) -> exp.Expression | None:
             this = super()._parse_expression()
 
             # Clickhouse allows "SELECT <expr> [APPLY(func)] [...]]" modifier
@@ -951,7 +947,7 @@ class ClickHouse(Dialect):
                 this = exp.Apply(this=this, expression=self._parse_var(any_token=True))
             return this
 
-        def _parse_value(self, values: bool = True) -> t.Optional[exp.Tuple]:
+        def _parse_value(self, values: bool = True) -> exp.Tuple | None:
             value = super()._parse_value(values=values)
             if not value:
                 return None
@@ -1077,10 +1073,12 @@ class ClickHouse(Dialect):
             exp.Array: inline_array_sql,
             exp.CastToStrType: rename_func("CAST"),
             exp.CountIf: rename_func("countIf"),
-            exp.CompressColumnConstraint: lambda self,
-            e: f"CODEC({self.expressions(e, key='this', flat=True)})",
-            exp.ComputedColumnConstraint: lambda self,
-            e: f"{'MATERIALIZED' if e.args.get('persisted') else 'ALIAS'} {self.sql(e, 'this')}",
+            exp.CompressColumnConstraint: lambda self, e: (
+                f"CODEC({self.expressions(e, key='this', flat=True)})"
+            ),
+            exp.ComputedColumnConstraint: lambda self, e: (
+                f"{'MATERIALIZED' if e.args.get('persisted') else 'ALIAS'} {self.sql(e, 'this')}"
+            ),
             exp.CurrentDate: lambda self, e: self.func("CURRENT_DATE"),
             exp.DateAdd: _datetime_delta_sql("DATE_ADD"),
             exp.DateDiff: _datetime_delta_sql("DATE_DIFF"),
@@ -1187,7 +1185,7 @@ class ClickHouse(Dialect):
 
             return strtodate_sql
 
-        def cast_sql(self, expression: exp.Cast, safe_prefix: t.Optional[str] = None) -> str:
+        def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
             this = expression.this
 
             if isinstance(this, exp.StrToDate) and expression.to == exp.DataType.build("datetime"):
@@ -1278,7 +1276,7 @@ class ClickHouse(Dialect):
 
             return super().cte_sql(expression)
 
-        def after_limit_modifiers(self, expression: exp.Expression) -> t.List[str]:
+        def after_limit_modifiers(self, expression: exp.Expression) -> list[str]:
             return super().after_limit_modifiers(expression) + [
                 (
                     self.seg("SETTINGS ") + self.expressions(expression, key="settings", flat=True)
@@ -1298,7 +1296,7 @@ class ClickHouse(Dialect):
         def oncluster_sql(self, expression: exp.OnCluster) -> str:
             return f"ON CLUSTER {self.sql(expression, 'this')}"
 
-        def createable_sql(self, expression: exp.Create, locations: t.DefaultDict) -> str:
+        def createable_sql(self, expression: exp.Create, locations: defaultdict) -> str:
             if expression.kind in self.ON_CLUSTER_TARGETS and locations.get(
                 exp.Properties.Location.POST_NAME
             ):

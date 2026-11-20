@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 from sqlglot import exp
-from sqlglot.helper import seq_get
 from sqlglot.dialects.postgres import Postgres
-
+from sqlglot.helper import seq_get
 from sqlglot.tokens import TokenType
 from sqlglot.transforms import (
-    remove_unique_constraints,
     ctas_with_tmp_tables_to_create_tmp_view,
     preprocess,
+    remove_unique_constraints,
 )
-import typing as t
 
 
 class Materialize(Postgres):
@@ -27,7 +25,7 @@ class Materialize(Postgres):
             ),
         }
 
-        def _parse_lambda_arg(self) -> t.Optional[exp.Expression]:
+        def _parse_lambda_arg(self) -> exp.Expression | None:
             return self._parse_field()
 
         def _parse_map(self) -> exp.ToMap:

@@ -10,21 +10,21 @@ from sqlglot.dialects.dialect import (
     date_delta_sql,
     generatedasidentitycolumnconstraint_sql,
     json_extract_segments,
+    map_date_part,
     no_tablesample_sql,
     rename_func,
-    map_date_part,
 )
 from sqlglot.dialects.postgres import Postgres
 from sqlglot.helper import seq_get
-from sqlglot.tokens import TokenType
 from sqlglot.parser import build_convert_timezone
+from sqlglot.tokens import TokenType
 
 if t.TYPE_CHECKING:
     from sqlglot._typing import E
 
 
-def _build_date_delta(expr_type: t.Type[E]) -> t.Callable[[t.List], E]:
-    def _builder(args: t.List) -> E:
+def _build_date_delta(expr_type: type[E]) -> t.Callable[[list], E]:
+    def _builder(args: list) -> E:
         expr = expr_type(
             this=seq_get(args, 2),
             expression=seq_get(args, 1),
@@ -86,12 +86,12 @@ class Redshift(Postgres):
             self,
             schema: bool = False,
             joins: bool = False,
-            alias_tokens: t.Optional[t.Collection[TokenType]] = None,
+            alias_tokens: t.Collection[TokenType] | None = None,
             parse_bracket: bool = False,
             is_db_reference: bool = False,
             parse_partition: bool = False,
             consume_pipe: bool = False,
-        ) -> t.Optional[exp.Expression]:
+        ) -> exp.Expression | None:
             # Redshift supports UNPIVOTing SUPER objects, e.g. `UNPIVOT foo.obj[0] AS val AT attr`
             unpivot = self._match(TokenType.UNPIVOT)
             table = super()._parse_table(
@@ -104,15 +104,13 @@ class Redshift(Postgres):
 
             return self.expression(exp.Pivot, this=table, unpivot=True) if unpivot else table
 
-        def _parse_convert(
-            self, strict: bool, safe: t.Optional[bool] = None
-        ) -> t.Optional[exp.Expression]:
+        def _parse_convert(self, strict: bool, safe: bool | None = None) -> exp.Expression | None:
             to = self._parse_types()
             self._match(TokenType.COMMA)
             this = self._parse_bitwise()
             return self.expression(exp.TryCast, this=this, to=to, safe=safe)
 
-        def _parse_approximate_count(self) -> t.Optional[exp.ApproxDistinct]:
+        def _parse_approximate_count(self) -> exp.ApproxDistinct | None:
             index = self._index - 1
             func = self._parse_function()
 
@@ -182,8 +180,9 @@ class Redshift(Postgres):
             exp.ArrayConcat: lambda self, e: self.arrayconcat_sql(e, name="ARRAY_CONCAT"),
             exp.Concat: concat_to_dpipe_sql,
             exp.ConcatWs: concat_ws_to_dpipe_sql,
-            exp.ApproxDistinct: lambda self,
-            e: f"APPROXIMATE COUNT(DISTINCT {self.sql(e, 'this')})",
+            exp.ApproxDistinct: lambda self, e: (
+                f"APPROXIMATE COUNT(DISTINCT {self.sql(e, 'this')})"
+            ),
             exp.CurrentTimestamp: lambda self, e: (
                 "SYSDATE" if e.args.get("sysdate") else "GETDATE()"
             ),
@@ -207,10 +206,12 @@ class Redshift(Postgres):
                     transforms.unnest_generate_date_array_using_recursive_cte,
                 ]
             ),
-            exp.SortKeyProperty: lambda self,
-            e: f"{'COMPOUND ' if e.args['compound'] else ''}SORTKEY({self.format_args(*e.this)})",
-            exp.StartsWith: lambda self,
-            e: f"{self.sql(e.this)} LIKE {self.sql(e.expression)} || '%'",
+            exp.SortKeyProperty: lambda self, e: (
+                f"{'COMPOUND ' if e.args['compound'] else ''}SORTKEY({self.format_args(*e.this)})"
+            ),
+            exp.StartsWith: lambda self, e: (
+                f"{self.sql(e.this)} LIKE {self.sql(e.expression)} || '%'"
+            ),
             exp.StringToArray: rename_func("SPLIT_TO_ARRAY"),
             exp.TableSample: no_tablesample_sql,
             exp.TsOrDsAdd: date_delta_sql("DATEADD"),
@@ -406,7 +407,7 @@ class Redshift(Postgres):
             alias = self.expressions(expression.args.get("alias"), key="columns", flat=True)
             return f"{arg} AS {alias}" if alias else arg
 
-        def cast_sql(self, expression: exp.Cast, safe_prefix: t.Optional[str] = None) -> str:
+        def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
             if expression.is_type(exp.DataType.Type.JSON):
                 # Redshift doesn't support a JSON type, so casting to it is treated as a noop
                 return self.sql(expression, "this")

@@ -5,25 +5,25 @@ import typing as t
 from sqlglot import exp
 from sqlglot.dialects.dialect import (
     Version,
-    rename_func,
-    unit_to_var,
-    timestampdiff_sql,
     build_date_delta,
     groupconcat_sql,
+    rename_func,
+    timestampdiff_sql,
+    unit_to_var,
 )
 from sqlglot.dialects.hive import _build_with_ignore_nulls
-from sqlglot.dialects.spark2 import Spark2, temporary_storage_provider, _build_as_cast
+from sqlglot.dialects.spark2 import Spark2, _build_as_cast, temporary_storage_provider
 from sqlglot.helper import ensure_list, seq_get
 from sqlglot.tokens import TokenType
 from sqlglot.transforms import (
     ctas_with_tmp_tables_to_create_tmp_view,
-    remove_unique_constraints,
-    preprocess,
     move_partitioned_by_to_schema_columns,
+    preprocess,
+    remove_unique_constraints,
 )
 
 
-def _build_datediff(args: t.List) -> exp.Expression:
+def _build_datediff(args: list) -> exp.Expression:
     """
     Although Spark docs don't mention the "unit" argument, Spark3 added support for
     it at some point. Databricks also supports this variant (see below).
@@ -49,7 +49,7 @@ def _build_datediff(args: t.List) -> exp.Expression:
     )
 
 
-def _build_dateadd(args: t.List) -> exp.Expression:
+def _build_dateadd(args: list) -> exp.Expression:
     expression = seq_get(args, 1)
 
     if len(args) == 2:
@@ -116,7 +116,7 @@ class Spark(Spark2):
 
         RAW_STRINGS = [
             (prefix + q, q)
-            for q in t.cast(t.List[str], Spark2.Tokenizer.QUOTES)
+            for q in t.cast(list[str], Spark2.Tokenizer.QUOTES)
             for prefix in ("r", "R")
         ]
 
@@ -146,7 +146,7 @@ class Spark(Spark2):
             TokenType.L_BRACE: lambda self: self._parse_query_parameter(),
         }
 
-        def _parse_query_parameter(self) -> t.Optional[exp.Expression]:
+        def _parse_query_parameter(self) -> exp.Expression | None:
             this = self._parse_id_var()
             self._match(TokenType.R_BRACE)
             return self.expression(exp.Placeholder, this=this, widget=True)
@@ -197,8 +197,9 @@ class Spark(Spark2):
             exp.DateFromUnixDate: rename_func("DATE_FROM_UNIX_DATE"),
             exp.GroupConcat: _groupconcat_sql,
             exp.EndsWith: rename_func("ENDSWITH"),
-            exp.PartitionedByProperty: lambda self,
-            e: f"PARTITIONED BY {self.wrap(self.expressions(sqls=[_normalize_partition(e) for e in e.this.expressions], skip_first=True))}",
+            exp.PartitionedByProperty: lambda self, e: (
+                f"PARTITIONED BY {self.wrap(self.expressions(sqls=[_normalize_partition(e) for e in e.this.expressions], skip_first=True))}"
+            ),
             exp.StartsWith: rename_func("STARTSWITH"),
             exp.TsOrDsAdd: _dateadd_sql,
             exp.TimestampAdd: _dateadd_sql,

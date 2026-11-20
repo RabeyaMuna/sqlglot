@@ -4,6 +4,7 @@ import functools
 import typing as t
 
 from sqlglot import exp
+from sqlglot.dialects.dialect import Dialect
 from sqlglot.helper import (
     ensure_list,
     is_date_unit,
@@ -13,25 +14,24 @@ from sqlglot.helper import (
 )
 from sqlglot.optimizer.scope import Scope, traverse_scope
 from sqlglot.schema import MappingSchema, Schema, ensure_schema
-from sqlglot.dialects.dialect import Dialect
 
 if t.TYPE_CHECKING:
     from sqlglot._typing import B, E
 
     BinaryCoercionFunc = t.Callable[[exp.Expression, exp.Expression], exp.DataType.Type]
-    BinaryCoercions = t.Dict[
-        t.Tuple[exp.DataType.Type, exp.DataType.Type],
+    BinaryCoercions = dict[
+        tuple[exp.DataType.Type, exp.DataType.Type],
         BinaryCoercionFunc,
     ]
 
-    from sqlglot.dialects.dialect import DialectType, AnnotatorsType
+    from sqlglot.dialects.dialect import AnnotatorsType, DialectType
 
 
 def annotate_types(
     expression: E,
-    schema: t.Optional[t.Dict | Schema] = None,
-    annotators: t.Optional[AnnotatorsType] = None,
-    coerces_to: t.Optional[t.Dict[exp.DataType.Type, t.Set[exp.DataType.Type]]] = None,
+    schema: dict | Schema | None = None,
+    annotators: AnnotatorsType | None = None,
+    coerces_to: dict[exp.DataType.Type, set[exp.DataType.Type]] | None = None,
     dialect: DialectType = None,
 ) -> E:
     """
@@ -60,7 +60,7 @@ def annotate_types(
     return TypeAnnotator(schema, annotators, coerces_to).annotate(expression)
 
 
-def _coerce_date_literal(l: exp.Expression, unit: t.Optional[exp.Expression]) -> exp.DataType.Type:
+def _coerce_date_literal(l: exp.Expression, unit: exp.Expression | None) -> exp.DataType.Type:
     date_text = l.name
     is_iso_date_ = is_iso_date(date_text)
 
@@ -74,7 +74,7 @@ def _coerce_date_literal(l: exp.Expression, unit: t.Optional[exp.Expression]) ->
     return exp.DataType.Type.UNKNOWN
 
 
-def _coerce_date(l: exp.Expression, unit: t.Optional[exp.Expression]) -> exp.DataType.Type:
+def _coerce_date(l: exp.Expression, unit: exp.Expression | None) -> exp.DataType.Type:
     if not is_date_unit(unit):
         return exp.DataType.Type.DATETIME
     return l.type.this if l.type else exp.DataType.Type.UNKNOWN
@@ -144,7 +144,7 @@ class TypeAnnotator(metaclass=_TypeAnnotator):
     }
 
     # Specifies what types a given type can be coerced into (autofilled)
-    COERCES_TO: t.Dict[exp.DataType.Type, t.Set[exp.DataType.Type]] = {}
+    COERCES_TO: dict[exp.DataType.Type, set[exp.DataType.Type]] = {}
 
     # Coercion functions for binary operations.
     # Map of type pairs to a callable that takes both sides of the binary operation and returns the resulting type.
@@ -179,9 +179,9 @@ class TypeAnnotator(metaclass=_TypeAnnotator):
     def __init__(
         self,
         schema: Schema,
-        annotators: t.Optional[AnnotatorsType] = None,
-        coerces_to: t.Optional[t.Dict[exp.DataType.Type, t.Set[exp.DataType.Type]]] = None,
-        binary_coercions: t.Optional[BinaryCoercions] = None,
+        annotators: AnnotatorsType | None = None,
+        coerces_to: dict[exp.DataType.Type, set[exp.DataType.Type]] | None = None,
+        binary_coercions: BinaryCoercions | None = None,
     ) -> None:
         self.schema = schema
         self.annotators = annotators or Dialect.get_or_raise(schema.dialect).ANNOTATORS
@@ -191,15 +191,15 @@ class TypeAnnotator(metaclass=_TypeAnnotator):
         self.binary_coercions = binary_coercions or self.BINARY_COERCIONS
 
         # Caches the ids of annotated sub-Expressions, to ensure we only visit them once
-        self._visited: t.Set[int] = set()
+        self._visited: set[int] = set()
 
         # Maps an exp.SetOperation's id (e.g. UNION) to its projection types. This is computed if the
         # exp.SetOperation is the expression of a scope source, as selecting from it multiple times
         # would reprocess the entire subtree to coerce the types of its operands' projections
-        self._setop_column_types: t.Dict[int, t.Dict[str, exp.DataType | exp.DataType.Type]] = {}
+        self._setop_column_types: dict[int, dict[str, exp.DataType | exp.DataType.Type]] = {}
 
     def _set_type(
-        self, expression: exp.Expression, target_type: t.Optional[exp.DataType | exp.DataType.Type]
+        self, expression: exp.Expression, target_type: exp.DataType | exp.DataType.Type | None
     ) -> None:
         expression.type = target_type or exp.DataType.Type.UNKNOWN  # type: ignore
         self._visited.add(id(expression))
@@ -445,7 +445,7 @@ class TypeAnnotator(metaclass=_TypeAnnotator):
     ) -> E:
         self._annotate_args(expression)
 
-        expressions: t.List[exp.Expression] = []
+        expressions: list[exp.Expression] = []
         for arg in args:
             arg_expr = expression.args.get(arg)
             expressions.extend(expr for expr in ensure_list(arg_expr) if expr)
@@ -566,7 +566,7 @@ class TypeAnnotator(metaclass=_TypeAnnotator):
 
     def _annotate_struct_value(
         self, expression: exp.Expression
-    ) -> t.Optional[exp.DataType] | exp.ColumnDef:
+    ) -> exp.DataType | None | exp.ColumnDef:
         alias = expression.args.get("alias")
         if alias:
             return exp.ColumnDef(this=alias.copy(), kind=expression.type)

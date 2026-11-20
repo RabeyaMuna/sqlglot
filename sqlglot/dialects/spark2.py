@@ -13,18 +13,17 @@ from sqlglot.dialects.dialect import (
     unit_to_str,
 )
 from sqlglot.dialects.hive import Hive
-from sqlglot.helper import seq_get, ensure_list
+from sqlglot.helper import ensure_list, seq_get
 from sqlglot.tokens import TokenType
 from sqlglot.transforms import (
-    preprocess,
-    remove_unique_constraints,
     ctas_with_tmp_tables_to_create_tmp_view,
     move_schema_columns_to_partitioned_by,
+    preprocess,
+    remove_unique_constraints,
 )
 
 if t.TYPE_CHECKING:
     from sqlglot._typing import E
-
     from sqlglot.optimizer.annotate_types import TypeAnnotator
 
 
@@ -38,7 +37,7 @@ def _map_sql(self: Spark2.Generator, expression: exp.Map) -> str:
     return self.func("MAP_FROM_ARRAYS", keys, values)
 
 
-def _build_as_cast(to_type: str) -> t.Callable[[t.List], exp.Expression]:
+def _build_as_cast(to_type: str) -> t.Callable[[list], exp.Expression]:
     return lambda args: exp.Cast(this=seq_get(args, 0), to=exp.DataType.build(to_type))
 
 
@@ -128,7 +127,7 @@ def _annotate_by_similar_args(
     """
     self._annotate_args(expression)
 
-    expressions: t.List[exp.Expression] = []
+    expressions: list[exp.Expression] = []
     for arg in args:
         arg_expr = expression.args.get(arg)
         expressions.extend(expr for expr in ensure_list(arg_expr) if expr)
@@ -233,12 +232,12 @@ class Spark2(Hive):
             "SHUFFLE_REPLICATE_NL": lambda self: self._parse_join_hint("SHUFFLE_REPLICATE_NL"),
         }
 
-        def _parse_drop_column(self) -> t.Optional[exp.Drop | exp.Command]:
+        def _parse_drop_column(self) -> exp.Drop | exp.Command | None:
             return self._match_text_seq("DROP", "COLUMNS") and self.expression(
                 exp.Drop, this=self._parse_schema(), kind="COLUMNS"
             )
 
-        def _pivot_column_names(self, aggregations: t.List[exp.Expression]) -> t.List[str]:
+        def _pivot_column_names(self, aggregations: list[exp.Expression]) -> list[str]:
             if len(aggregations) == 1:
                 return []
             return pivot_column_names(aggregations, dialect="spark")
@@ -267,8 +266,9 @@ class Spark2(Hive):
         TRANSFORMS = {
             **Hive.Generator.TRANSFORMS,
             exp.ApproxDistinct: rename_func("APPROX_COUNT_DISTINCT"),
-            exp.ArraySum: lambda self,
-            e: f"AGGREGATE({self.sql(e, 'this')}, 0, (acc, x) -> acc + x, acc -> acc)",
+            exp.ArraySum: lambda self, e: (
+                f"AGGREGATE({self.sql(e, 'this')}, 0, (acc, x) -> acc + x, acc -> acc)"
+            ),
             exp.ArrayToString: rename_func("ARRAY_JOIN"),
             exp.ArraySlice: rename_func("SLICE"),
             exp.AtTimeZone: lambda self, e: self.func(
@@ -341,7 +341,7 @@ class Spark2(Hive):
 
             return Generator.struct_sql(self, expression)
 
-        def cast_sql(self, expression: exp.Cast, safe_prefix: t.Optional[str] = None) -> str:
+        def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
             arg = expression.this
             is_json_extract = isinstance(
                 arg, (exp.JSONExtract, exp.JSONExtractScalar)

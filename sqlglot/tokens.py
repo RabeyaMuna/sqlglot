@@ -15,8 +15,14 @@ if t.TYPE_CHECKING:
 try:
     from sqlglotrs import (  # type: ignore
         Tokenizer as RsTokenizer,
+    )
+    from sqlglotrs import (
         TokenizerDialectSettings as RsTokenizerDialectSettings,
+    )
+    from sqlglotrs import (
         TokenizerSettings as RsTokenizerSettings,
+    )
+    from sqlglotrs import (
         TokenTypeSettings as RsTokenTypeSettings,
     )
 
@@ -470,7 +476,7 @@ class Token:
         col: int = 1,
         start: int = 0,
         end: int = 0,
-        comments: t.Optional[t.List[str]] = None,
+        comments: list[str] | None = None,
     ) -> None:
         """Token initializer.
 
@@ -500,14 +506,14 @@ class _Tokenizer(type):
     def __new__(cls, clsname, bases, attrs):
         klass = super().__new__(cls, clsname, bases, attrs)
 
-        def _convert_quotes(arr: t.List[str | t.Tuple[str, str]]) -> t.Dict[str, str]:
+        def _convert_quotes(arr: list[str | tuple[str, str]]) -> dict[str, str]:
             return dict(
                 (item, item) if isinstance(item, str) else (item[0], item[1]) for item in arr
             )
 
         def _quotes_to_format(
-            token_type: TokenType, arr: t.List[str | t.Tuple[str, str]]
-        ) -> t.Dict[str, t.Tuple[str, TokenType]]:
+            token_type: TokenType, arr: list[str | tuple[str, str]]
+        ) -> dict[str, tuple[str, TokenType]]:
             return {k: (v, token_type) for k, v in _convert_quotes(arr).items()}
 
         klass._QUOTES = _convert_quotes(klass.QUOTES)
@@ -638,21 +644,21 @@ class Tokenizer(metaclass=_Tokenizer):
         '"': TokenType.UNKNOWN,
     }
 
-    BIT_STRINGS: t.List[str | t.Tuple[str, str]] = []
-    BYTE_STRINGS: t.List[str | t.Tuple[str, str]] = []
-    HEX_STRINGS: t.List[str | t.Tuple[str, str]] = []
-    RAW_STRINGS: t.List[str | t.Tuple[str, str]] = []
-    HEREDOC_STRINGS: t.List[str | t.Tuple[str, str]] = []
-    UNICODE_STRINGS: t.List[str | t.Tuple[str, str]] = []
-    IDENTIFIERS: t.List[str | t.Tuple[str, str]] = ['"']
-    QUOTES: t.List[t.Tuple[str, str] | str] = ["'"]
+    BIT_STRINGS: list[str | tuple[str, str]] = []
+    BYTE_STRINGS: list[str | tuple[str, str]] = []
+    HEX_STRINGS: list[str | tuple[str, str]] = []
+    RAW_STRINGS: list[str | tuple[str, str]] = []
+    HEREDOC_STRINGS: list[str | tuple[str, str]] = []
+    UNICODE_STRINGS: list[str | tuple[str, str]] = []
+    IDENTIFIERS: list[str | tuple[str, str]] = ['"']
+    QUOTES: list[tuple[str, str] | str] = ["'"]
     STRING_ESCAPES = ["'"]
-    VAR_SINGLE_TOKENS: t.Set[str] = set()
+    VAR_SINGLE_TOKENS: set[str] = set()
 
     # The strings in this list can always be used as escapes, regardless of the surrounding
     # identifier delimiters. By default, the closing delimiter is assumed to also act as an
     # identifier escape, e.g. if we use double-quotes, then they also act as escapes: "x"""
-    IDENTIFIER_ESCAPES: t.List[str] = []
+    IDENTIFIER_ESCAPES: list[str] = []
 
     # Whether the heredoc tags follow the same lexical rules as unquoted identifiers
     HEREDOC_TAG_IS_IDENTIFIER = False
@@ -670,16 +676,16 @@ class Tokenizer(metaclass=_Tokenizer):
     TOKENS_PRECEDING_HINT = {TokenType.SELECT, TokenType.INSERT, TokenType.UPDATE, TokenType.DELETE}
 
     # Autofilled
-    _COMMENTS: t.Dict[str, str] = {}
-    _FORMAT_STRINGS: t.Dict[str, t.Tuple[str, TokenType]] = {}
-    _IDENTIFIERS: t.Dict[str, str] = {}
-    _IDENTIFIER_ESCAPES: t.Set[str] = set()
-    _QUOTES: t.Dict[str, str] = {}
-    _STRING_ESCAPES: t.Set[str] = set()
-    _KEYWORD_TRIE: t.Dict = {}
-    _RS_TOKENIZER: t.Optional[t.Any] = None
+    _COMMENTS: dict[str, str] = {}
+    _FORMAT_STRINGS: dict[str, tuple[str, TokenType]] = {}
+    _IDENTIFIERS: dict[str, str] = {}
+    _IDENTIFIER_ESCAPES: set[str] = set()
+    _QUOTES: dict[str, str] = {}
+    _STRING_ESCAPES: set[str] = set()
+    _KEYWORD_TRIE: dict = {}
+    _RS_TOKENIZER: t.Any | None = None
 
-    KEYWORDS: t.Dict[str, TokenType] = {
+    KEYWORDS: dict[str, TokenType] = {
         **{f"{{%{postfix}": TokenType.BLOCK_START for postfix in ("", "+", "-")},
         **{f"{prefix}%}}": TokenType.BLOCK_END for prefix in ("", "+", "-")},
         **{f"{{{{{postfix}": TokenType.BLOCK_START for postfix in ("+", "-")},
@@ -980,7 +986,7 @@ class Tokenizer(metaclass=_Tokenizer):
         "FOR TIMESTAMP": TokenType.TIMESTAMP_SNAPSHOT,
     }
 
-    WHITE_SPACE: t.Dict[t.Optional[str], TokenType] = {
+    WHITE_SPACE: dict[str | None, TokenType] = {
         " ": TokenType.SPACE,
         "\t": TokenType.SPACE,
         "\n": TokenType.BREAK,
@@ -998,7 +1004,7 @@ class Tokenizer(metaclass=_Tokenizer):
     COMMAND_PREFIX_TOKENS = {TokenType.SEMICOLON, TokenType.BEGIN}
 
     # Handle numeric literals like in hive (3L = BIGINT)
-    NUMERIC_LITERALS: t.Dict[str, str] = {}
+    NUMERIC_LITERALS: dict[str, str] = {}
 
     COMMENTS = ["--", ("/*", "*/")]
 
@@ -1023,7 +1029,7 @@ class Tokenizer(metaclass=_Tokenizer):
     def __init__(
         self,
         dialect: DialectType = None,
-        use_rs_tokenizer: t.Optional[bool] = None,
+        use_rs_tokenizer: bool | None = None,
         **opts: t.Any,
     ) -> None:
         from sqlglot.dialects import Dialect
@@ -1047,19 +1053,19 @@ class Tokenizer(metaclass=_Tokenizer):
     def reset(self) -> None:
         self.sql = ""
         self.size = 0
-        self.tokens: t.List[Token] = []
+        self.tokens: list[Token] = []
         self._start = 0
         self._current = 0
         self._line = 1
         self._col = 0
-        self._comments: t.List[str] = []
+        self._comments: list[str] = []
 
         self._char = ""
         self._end = False
         self._peek = ""
         self._prev_token_line = -1
 
-    def tokenize(self, sql: str) -> t.List[Token]:
+    def tokenize(self, sql: str) -> list[Token]:
         """Returns a list of tokens corresponding to the SQL string `sql`."""
         if self.use_rs_tokenizer:
             return self.tokenize_rs(sql)
@@ -1078,7 +1084,7 @@ class Tokenizer(metaclass=_Tokenizer):
 
         return self.tokens
 
-    def _scan(self, until: t.Optional[t.Callable] = None) -> None:
+    def _scan(self, until: t.Callable | None = None) -> None:
         while self.size and not self._end:
             current = self._current
 
@@ -1156,7 +1162,7 @@ class Tokenizer(metaclass=_Tokenizer):
     def _text(self) -> str:
         return self.sql[self._start : self._current]
 
-    def _add(self, token_type: TokenType, text: t.Optional[str] = None) -> None:
+    def _add(self, token_type: TokenType, text: str | None = None) -> None:
         self._prev_token_line = self._line
 
         if self._comments and token_type == TokenType.SEMICOLON and self.tokens:
@@ -1460,7 +1466,7 @@ class Tokenizer(metaclass=_Tokenizer):
     def _extract_string(
         self,
         delimiter: str,
-        escapes: t.Optional[t.Set[str]] = None,
+        escapes: set[str] | None = None,
         raw_string: bool = False,
         raise_unmatched: bool = True,
     ) -> str:
@@ -1513,7 +1519,7 @@ class Tokenizer(metaclass=_Tokenizer):
 
         return text
 
-    def tokenize_rs(self, sql: str) -> t.List[Token]:
+    def tokenize_rs(self, sql: str) -> list[Token]:
         if not self._RS_TOKENIZER:
             raise SqlglotError("Rust tokenizer is not available")
 

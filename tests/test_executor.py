@@ -1,5 +1,5 @@
-import os
 import datetime
+import os
 import unittest
 from datetime import date, time
 from multiprocessing import Pool
@@ -8,7 +8,6 @@ import duckdb
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
-
 from sqlglot import exp, parse_one, transpile
 from sqlglot.errors import ExecuteError
 from sqlglot.executor import execute
@@ -16,11 +15,12 @@ from sqlglot.executor.python import Python
 from sqlglot.executor.table import Table, ensure_tables
 from sqlglot.optimizer import optimize
 from sqlglot.planner import Plan
+
 from tests.helpers import (
     FIXTURES_DIR,
     SKIP_INTEGRATION,
-    TPCH_SCHEMA,
     TPCDS_SCHEMA,
+    TPCH_SCHEMA,
     load_sql_fixture_pairs,
     string_to_bool,
 )

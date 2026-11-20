@@ -4,16 +4,16 @@ import typing as t
 from collections import defaultdict
 
 from sqlglot import alias, exp
+from sqlglot.errors import OptimizeError
+from sqlglot.helper import seq_get
 from sqlglot.optimizer.qualify_columns import Resolver
 from sqlglot.optimizer.scope import Scope, traverse_scope
 from sqlglot.schema import ensure_schema
-from sqlglot.errors import OptimizeError
-from sqlglot.helper import seq_get
 
 if t.TYPE_CHECKING:
     from sqlglot._typing import E
-    from sqlglot.schema import Schema
     from sqlglot.dialects.dialect import DialectType
+    from sqlglot.schema import Schema
 
 # Sentinel value that means an outer query selecting ALL columns
 SELECT_ALL = object()
@@ -26,7 +26,7 @@ def default_selection(is_agg: bool) -> exp.Alias:
 
 def pushdown_projections(
     expression: E,
-    schema: t.Optional[t.Dict | Schema] = None,
+    schema: dict | Schema | None = None,
     remove_unused_selections: bool = True,
     dialect: DialectType = None,
 ) -> E:
@@ -48,8 +48,8 @@ def pushdown_projections(
     """
     # Map of Scope to all columns being selected by outer queries.
     schema = ensure_schema(schema, dialect=dialect)
-    source_column_alias_count: t.Dict[exp.Expression | Scope, int] = {}
-    referenced_columns: t.DefaultDict[Scope, t.Set[str | object]] = defaultdict(set)
+    source_column_alias_count: dict[exp.Expression | Scope, int] = {}
+    referenced_columns: defaultdict[Scope, set[str | object]] = defaultdict(set)
 
     # We build the scope tree (which is traversed in DFS postorder), then iterate
     # over the result in reverse order. This should ensure that the set of selected

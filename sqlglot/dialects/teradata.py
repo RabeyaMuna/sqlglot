@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing as t
+from collections import defaultdict
 
 from sqlglot import exp, generator, parser, tokens, transforms
 from sqlglot.dialects.dialect import (
@@ -239,7 +240,7 @@ class Teradata(Dialect):
 
             # Handle both string literals and NONE keyword
             if self._match_text_seq("NONE"):
-                query_band_string: t.Optional[exp.Expression] = exp.Var(this="NONE")
+                query_band_string: exp.Expression | None = exp.Var(this="NONE")
             else:
                 query_band_string = self._parse_string()
 
@@ -271,11 +272,11 @@ class Teradata(Dialect):
 
         def _parse_function(
             self,
-            functions: t.Optional[t.Dict[str, t.Callable]] = None,
+            functions: dict[str, t.Callable] | None = None,
             anonymous: bool = False,
             optional_parens: bool = True,
             any_token: bool = False,
-        ) -> t.Optional[exp.Expression]:
+        ) -> exp.Expression | None:
             # Teradata uses a `(FORMAT <format_string>)` clause after column references to
             # override the output format. When we see this pattern we do not
             # parse it as a function call.  The syntax is documented at
@@ -295,7 +296,7 @@ class Teradata(Dialect):
                 any_token=any_token,
             )
 
-        def _parse_column_ops(self, this: t.Optional[exp.Expression]) -> t.Optional[exp.Expression]:
+        def _parse_column_ops(self, this: exp.Expression | None) -> exp.Expression | None:
             this = super()._parse_column_ops(this)
 
             if self._match_pair(TokenType.L_PAREN, TokenType.FORMAT):
@@ -344,13 +345,12 @@ class Teradata(Dialect):
             exp.Select: transforms.preprocess(
                 [transforms.eliminate_distinct_on, transforms.eliminate_semi_and_anti_joins]
             ),
-            exp.StrPosition: lambda self, e: (
-                strposition_sql(
-                    self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
-                )
+            exp.StrPosition: lambda self, e: strposition_sql(
+                self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
             ),
-            exp.StrToDate: lambda self,
-            e: f"CAST({self.sql(e, 'this')} AS DATE FORMAT {self.format_time(e)})",
+            exp.StrToDate: lambda self, e: (
+                f"CAST({self.sql(e, 'this')} AS DATE FORMAT {self.format_time(e)})"
+            ),
             exp.ToChar: lambda self, e: self.function_fallback_sql(e),
             exp.ToNumber: to_number_with_nls_param,
             exp.Use: lambda self, e: f"DATABASE {self.sql(e, 'this')}",
@@ -363,7 +363,7 @@ class Teradata(Dialect):
             prefix, suffix = ("(", ")") if expression.this else ("", "")
             return self.func("CURRENT_TIMESTAMP", expression.this, prefix=prefix, suffix=suffix)
 
-        def cast_sql(self, expression: exp.Cast, safe_prefix: t.Optional[str] = None) -> str:
+        def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
             if expression.to.this == exp.DataType.Type.UNKNOWN and expression.args.get("format"):
                 # We don't actually want to print the unknown type in CAST(<value> AS FORMAT <format>)
                 expression.to.pop()
@@ -376,7 +376,7 @@ class Teradata(Dialect):
         def tablesample_sql(
             self,
             expression: exp.TableSample,
-            tablesample_keyword: t.Optional[str] = None,
+            tablesample_keyword: str | None = None,
         ) -> str:
             return f"{self.sql(expression, 'this')} SAMPLE {self.expressions(expression)}"
 
@@ -416,7 +416,7 @@ class Teradata(Dialect):
 
             return f"{locking_clause} {query_sql}"
 
-        def createable_sql(self, expression: exp.Create, locations: t.DefaultDict) -> str:
+        def createable_sql(self, expression: exp.Create, locations: defaultdict) -> str:
             kind = self.sql(expression, "kind").upper()
             if kind == "TABLE" and locations.get(exp.Properties.Location.POST_NAME):
                 this_name = self.sql(expression.this, "this")

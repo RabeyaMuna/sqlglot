@@ -1,6 +1,7 @@
 import unittest
 
-from sqlglot import parse_one, expressions as exp
+from sqlglot import expressions as exp
+from sqlglot import parse_one
 from sqlglot.transforms import (
     eliminate_distinct_on,
     eliminate_join_marks,

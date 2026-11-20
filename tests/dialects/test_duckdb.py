@@ -2,6 +2,7 @@ from sqlglot import ErrorLevel, ParseError, UnsupportedError, exp, parse_one, tr
 from sqlglot.generator import logger as generator_logger
 from sqlglot.helper import logger as helper_logger
 from sqlglot.optimizer.annotate_types import annotate_types
+
 from tests.dialects.test_dialect import Validator
 
 

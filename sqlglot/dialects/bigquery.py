@@ -12,33 +12,32 @@ from sqlglot.dialects.dialect import (
     annotate_with_type_lambda,
     arg_max_or_min_no_count,
     binary_from_function,
+    build_date_delta_with_interval,
+    build_formatted_time,
     date_add_interval_sql,
     datestrtodate_sql,
-    build_formatted_time,
     filter_array_using_unnest,
+    groupconcat_sql,
     if_sql,
     inline_array_unless_query,
     max_or_greatest,
     min_or_least,
     no_ilike_sql,
-    build_date_delta_with_interval,
     regexp_replace_sql,
     rename_func,
     sha256_sql,
+    space_sql,
+    strposition_sql,
     timestrtotime_sql,
     ts_or_ds_add_cast,
     unit_to_var,
-    strposition_sql,
-    groupconcat_sql,
-    space_sql,
 )
+from sqlglot.generator import unsupported_args
 from sqlglot.helper import seq_get, split_num_words
 from sqlglot.tokens import TokenType
-from sqlglot.generator import unsupported_args
 
 if t.TYPE_CHECKING:
     from sqlglot._typing import Lit
-
     from sqlglot.optimizer.annotate_types import TypeAnnotator
 
 logger = logging.getLogger("sqlglot")
@@ -150,24 +149,24 @@ def _pushdown_cte_column_names(expression: exp.Expression) -> exp.Expression:
     return expression
 
 
-def _build_parse_timestamp(args: t.List) -> exp.StrToTime:
+def _build_parse_timestamp(args: list) -> exp.StrToTime:
     this = build_formatted_time(exp.StrToTime, "bigquery")([seq_get(args, 1), seq_get(args, 0)])
     this.set("zone", seq_get(args, 2))
     return this
 
 
-def _build_timestamp(args: t.List) -> exp.Timestamp:
+def _build_timestamp(args: list) -> exp.Timestamp:
     timestamp = exp.Timestamp.from_arg_list(args)
     timestamp.set("with_tz", True)
     return timestamp
 
 
-def _build_date(args: t.List) -> exp.Date | exp.DateFromParts:
+def _build_date(args: list) -> exp.Date | exp.DateFromParts:
     expr_type = exp.DateFromParts if len(args) == 3 else exp.Date
     return expr_type.from_arg_list(args)
 
 
-def _build_to_hex(args: t.List) -> exp.Hex | exp.MD5:
+def _build_to_hex(args: list) -> exp.Hex | exp.MD5:
     # TO_HEX(MD5(..)) is common in BigQuery, so it's parsed into MD5 to simplify its transpilation
     arg = seq_get(args, 0)
     return exp.MD5(this=arg.this) if isinstance(arg, exp.MD5Digest) else exp.LowerHex(this=arg)
@@ -211,7 +210,7 @@ def _unix_to_time_sql(self: BigQuery.Generator, expression: exp.UnixToTime) -> s
     return self.func("TIMESTAMP_SECONDS", unix_seconds)
 
 
-def _build_time(args: t.List) -> exp.Func:
+def _build_time(args: list) -> exp.Func:
     if len(args) == 1:
         return exp.TsOrDsToTime(this=args[0])
     if len(args) == 2:
@@ -219,7 +218,7 @@ def _build_time(args: t.List) -> exp.Func:
     return exp.TimeFromParts.from_arg_list(args)
 
 
-def _build_datetime(args: t.List) -> exp.Func:
+def _build_datetime(args: list) -> exp.Func:
     if len(args) == 1:
         return exp.TsOrDsToDatetime.from_arg_list(args)
     if len(args) == 2:
@@ -228,9 +227,9 @@ def _build_datetime(args: t.List) -> exp.Func:
 
 
 def _build_regexp_extract(
-    expr_type: t.Type[E], default_group: t.Optional[exp.Expression] = None
-) -> t.Callable[[t.List], E]:
-    def _builder(args: t.List) -> E:
+    expr_type: type[E], default_group: exp.Expression | None = None
+) -> t.Callable[[list], E]:
+    def _builder(args: list) -> E:
         try:
             group = re.compile(args[1].name).groups == 1
         except re.error:
@@ -248,8 +247,8 @@ def _build_regexp_extract(
     return _builder
 
 
-def _build_extract_json_with_default_path(expr_type: t.Type[E]) -> t.Callable[[t.List, Dialect], E]:
-    def _builder(args: t.List, dialect: Dialect) -> E:
+def _build_extract_json_with_default_path(expr_type: type[E]) -> t.Callable[[list, Dialect], E]:
+    def _builder(args: list, dialect: Dialect) -> E:
         if len(args) == 1:
             # The default value for the JSONPath is '$' i.e all of the data
             args.append(exp.Literal.string("$"))
@@ -305,7 +304,7 @@ def _levenshtein_sql(self: BigQuery.Generator, expression: exp.Levenshtein) -> s
     return self.func("EDIT_DISTANCE", expression.this, expression.expression, max_dist)
 
 
-def _build_levenshtein(args: t.List) -> exp.Levenshtein:
+def _build_levenshtein(args: list) -> exp.Levenshtein:
     max_dist = seq_get(args, 2)
     return exp.Levenshtein(
         this=seq_get(args, 0),
@@ -314,8 +313,8 @@ def _build_levenshtein(args: t.List) -> exp.Levenshtein:
     )
 
 
-def _build_format_time(expr_type: t.Type[exp.Expression]) -> t.Callable[[t.List], exp.TimeToStr]:
-    def _builder(args: t.List) -> exp.TimeToStr:
+def _build_format_time(expr_type: type[exp.Expression]) -> t.Callable[[list], exp.TimeToStr]:
+    def _builder(args: list) -> exp.TimeToStr:
         return exp.TimeToStr(
             this=expr_type(this=seq_get(args, 1)),
             format=seq_get(args, 0),
@@ -325,7 +324,7 @@ def _build_format_time(expr_type: t.Type[exp.Expression]) -> t.Callable[[t.List]
     return _builder
 
 
-def _build_contains_substring(args: t.List) -> exp.Contains | exp.Anonymous:
+def _build_contains_substring(args: list) -> exp.Contains | exp.Anonymous:
     if len(args) == 3:
         return exp.Anonymous(this="CONTAINS_SUBSTR", expressions=args)
 
@@ -550,13 +549,9 @@ class BigQuery(Dialect):
 
         HEX_STRINGS = [("0x", ""), ("0X", "")]
 
-        BYTE_STRINGS = [
-            (prefix + q, q) for q in t.cast(t.List[str], QUOTES) for prefix in ("b", "B")
-        ]
+        BYTE_STRINGS = [(prefix + q, q) for q in t.cast(list[str], QUOTES) for prefix in ("b", "B")]
 
-        RAW_STRINGS = [
-            (prefix + q, q) for q in t.cast(t.List[str], QUOTES) for prefix in ("r", "R")
-        ]
+        RAW_STRINGS = [(prefix + q, q) for q in t.cast(list[str], QUOTES) for prefix in ("r", "R")]
 
         NESTED_COMMENTS = False
 
@@ -726,7 +721,7 @@ class BigQuery(Dialect):
             self._match_text_seq("DO")
             return self.expression(exp.ForIn, this=this, expression=self._parse_statement())
 
-        def _parse_table_part(self, schema: bool = False) -> t.Optional[exp.Expression]:
+        def _parse_table_part(self, schema: bool = False) -> exp.Expression | None:
             this = super()._parse_table_part(schema=schema) or self._parse_number()
 
             # https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#table_names
@@ -842,7 +837,7 @@ class BigQuery(Dialect):
 
             return table
 
-        def _parse_column(self) -> t.Optional[exp.Expression]:
+        def _parse_column(self) -> exp.Expression | None:
             column = super()._parse_column()
             if isinstance(column, exp.Column):
                 parts = column.parts
@@ -887,9 +882,7 @@ class BigQuery(Dialect):
 
             return json_object
 
-        def _parse_bracket(
-            self, this: t.Optional[exp.Expression] = None
-        ) -> t.Optional[exp.Expression]:
+        def _parse_bracket(self, this: exp.Expression | None = None) -> exp.Expression | None:
             bracket = super()._parse_bracket(this)
 
             if this is bracket:
@@ -909,7 +902,7 @@ class BigQuery(Dialect):
 
             return bracket
 
-        def _parse_unnest(self, with_alias: bool = True) -> t.Optional[exp.Unnest]:
+        def _parse_unnest(self, with_alias: bool = True) -> exp.Unnest | None:
             unnest = super()._parse_unnest(with_alias=with_alias)
 
             if not unnest:
@@ -1086,10 +1079,8 @@ class BigQuery(Dialect):
                 "DETERMINISTIC" if e.name == "IMMUTABLE" else "NOT DETERMINISTIC"
             ),
             exp.String: rename_func("STRING"),
-            exp.StrPosition: lambda self, e: (
-                strposition_sql(
-                    self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
-                )
+            exp.StrPosition: lambda self, e: strposition_sql(
+                self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
             ),
             exp.StrToDate: _str_to_datetime_sql,
             exp.StrToTime: _str_to_datetime_sql,
@@ -1391,7 +1382,7 @@ class BigQuery(Dialect):
 
             return self.func("CONTAINS_SUBSTR", this, expr)
 
-        def cast_sql(self, expression: exp.Cast, safe_prefix: t.Optional[str] = None) -> str:
+        def cast_sql(self, expression: exp.Cast, safe_prefix: str | None = None) -> str:
             this = expression.this
 
             # This ensures that inline type-annotated ARRAY literals like ARRAY<INT64>[1, 2, 3]

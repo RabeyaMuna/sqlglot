@@ -6,6 +6,7 @@ from sqlglot import parse_one, transpile
 from sqlglot.errors import ErrorLevel, ParseError, UnsupportedError
 from sqlglot.helper import logger as helper_logger
 from sqlglot.parser import logger as parser_logger
+
 from tests.helpers import (
     assert_logger_contains,
     load_sql_fixture_pairs,

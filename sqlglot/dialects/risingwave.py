@@ -1,10 +1,9 @@
 from __future__ import annotations
+
+from sqlglot import exp
 from sqlglot.dialects.postgres import Postgres
 from sqlglot.generator import Generator
 from sqlglot.tokens import TokenType
-import typing as t
-
-from sqlglot import exp
 
 
 class RisingWave(Postgres):
@@ -25,14 +24,14 @@ class RisingWave(Postgres):
             "KEY": lambda self: self._parse_encode_property(key=True),
         }
 
-        def _parse_table_hints(self) -> t.Optional[t.List[exp.Expression]]:
+        def _parse_table_hints(self) -> list[exp.Expression] | None:
             # There is no hint in risingwave.
             # Do nothing here to avoid WITH keywords conflict in CREATE SINK statement.
             return None
 
-        def _parse_include_property(self) -> t.Optional[exp.Expression]:
-            header: t.Optional[exp.Expression] = None
-            coldef: t.Optional[exp.Expression] = None
+        def _parse_include_property(self) -> exp.Expression | None:
+            header: exp.Expression | None = None
+            coldef: exp.Expression | None = None
 
             this = self._parse_var_or_string()
 
@@ -46,7 +45,7 @@ class RisingWave(Postgres):
 
             return self.expression(exp.IncludeProperty, this=this, alias=alias, column_def=coldef)
 
-        def _parse_encode_property(self, key: t.Optional[bool] = None) -> exp.EncodeProperty:
+        def _parse_encode_property(self, key: bool | None = None) -> exp.EncodeProperty:
             self._match_text_seq("ENCODE")
             this = self._parse_var_or_string()
 

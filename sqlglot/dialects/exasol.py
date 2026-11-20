@@ -6,13 +6,13 @@ from sqlglot import exp, generator, parser, tokens
 from sqlglot.dialects.dialect import (
     Dialect,
     binary_from_function,
+    build_date_delta,
     build_formatted_time,
     rename_func,
     strposition_sql,
+    timestamptrunc_sql,
     timestrtotime_sql,
     unit_to_str,
-    timestamptrunc_sql,
-    build_date_delta,
 )
 from sqlglot.generator import unsupported_args
 from sqlglot.helper import seq_get
@@ -40,7 +40,7 @@ def _date_diff_sql(self: Exasol.Generator, expression: exp.DateDiff | exp.TsOrDs
 
 # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/trunc%5Bate%5D%20(datetime).htm
 # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/trunc%5Bate%5D%20(number).htm
-def _build_trunc(args: t.List[exp.Expression], dialect: DialectType) -> exp.Expression:
+def _build_trunc(args: list[exp.Expression], dialect: DialectType) -> exp.Expression:
     first, second = seq_get(args, 0), seq_get(args, 1)
 
     if not first or not second:
@@ -58,13 +58,13 @@ def _build_trunc(args: t.List[exp.Expression], dialect: DialectType) -> exp.Expr
 
 
 # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/zeroifnull.htm
-def _build_zeroifnull(args: t.List) -> exp.If:
+def _build_zeroifnull(args: list) -> exp.If:
     cond = exp.Is(this=seq_get(args, 0), expression=exp.Null())
     return exp.If(this=cond, true=exp.Literal.number(0), false=seq_get(args, 0))
 
 
 # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/nullifzero.htm
-def _build_nullifzero(args: t.List) -> exp.If:
+def _build_nullifzero(args: list) -> exp.If:
     cond = exp.EQ(this=seq_get(args, 0), expression=exp.Literal.number(0))
     return exp.If(this=cond, true=exp.Null(), false=seq_get(args, 0))
 
@@ -265,10 +265,8 @@ class Exasol(Dialect):
                 e.args.get("zone"),
             ),
             # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/instr.htm
-            exp.StrPosition: lambda self, e: (
-                strposition_sql(
-                    self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
-                )
+            exp.StrPosition: lambda self, e: strposition_sql(
+                self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
             ),
             # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/hash_sha%5B1%5D.htm#HASH_SHA%5B1%5D
             exp.SHA: rename_func("HASH_SHA"),

@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from sqlglot import exp, parser, transforms
 from sqlglot.dialects.dialect import (
-    merge_without_target_sql,
-    trim_sql,
-    timestrtotime_sql,
     groupconcat_sql,
+    merge_without_target_sql,
+    timestrtotime_sql,
+    trim_sql,
 )
-from sqlglot.dialects.presto import amend_exploded_column_table, Presto
+from sqlglot.dialects.presto import Presto, amend_exploded_column_table
 from sqlglot.tokens import TokenType
-import typing as t
 
 
 class Trino(Presto):
@@ -38,7 +37,7 @@ class Trino(Presto):
             ),
         }
 
-        def _parse_json_query_quote(self) -> t.Optional[exp.JSONExtractQuote]:
+        def _parse_json_query_quote(self) -> exp.JSONExtractQuote | None:
             if not (
                 self._match_text_seq("KEEP", "QUOTES") or self._match_text_seq("OMIT", "QUOTES")
             ):
@@ -69,8 +68,9 @@ class Trino(Presto):
 
         TRANSFORMS = {
             **Presto.Generator.TRANSFORMS,
-            exp.ArraySum: lambda self,
-            e: f"REDUCE({self.sql(e, 'this')}, 0, (acc, x) -> acc + x, acc -> acc)",
+            exp.ArraySum: lambda self, e: (
+                f"REDUCE({self.sql(e, 'this')}, 0, (acc, x) -> acc + x, acc -> acc)"
+            ),
             exp.ArrayUniqueAgg: lambda self, e: f"ARRAY_AGG(DISTINCT {self.sql(e, 'this')})",
             exp.GroupConcat: lambda self, e: groupconcat_sql(self, e, on_overflow=True),
             exp.LocationProperty: lambda self, e: self.property_sql(e),

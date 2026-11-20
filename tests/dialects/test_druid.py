@@ -1,4 +1,5 @@
 from sqlglot.dialects.dialect import Dialects
+
 from tests.dialects.test_dialect import Validator
 
 

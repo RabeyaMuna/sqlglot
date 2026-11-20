@@ -6,8 +6,8 @@ from sqlglot import exp, generator, parser, tokens, transforms
 from sqlglot.dialects.dialect import (
     Dialect,
     NormalizationStrategy,
-    build_timetostr_or_tochar,
     build_formatted_time,
+    build_timetostr_or_tochar,
     no_ilike_sql,
     rename_func,
     strposition_sql,
@@ -31,7 +31,7 @@ def _trim_sql(self: Oracle.Generator, expression: exp.Trim) -> str:
     return trim_sql(self, expression)
 
 
-def _build_to_timestamp(args: t.List) -> exp.StrToTime | exp.Anonymous:
+def _build_to_timestamp(args: list) -> exp.StrToTime | exp.Anonymous:
     if len(args) == 1:
         return exp.Anonymous(this="TO_TIMESTAMP", expressions=args)
 
@@ -77,7 +77,7 @@ class Oracle(Dialect):
 
         UNICODE_STRINGS = [
             (prefix + q, q)
-            for q in t.cast(t.List[str], tokens.Tokenizer.QUOTES)
+            for q in t.cast(list[str], tokens.Tokenizer.QUOTES)
             for prefix in ("U", "u")
         ]
 
@@ -127,7 +127,7 @@ class Oracle(Dialect):
             "DBMS_RANDOM": lambda self: self._parse_dbms_random(),
         }
 
-        FUNCTION_PARSERS: t.Dict[str, t.Callable] = {
+        FUNCTION_PARSERS: dict[str, t.Callable] = {
             **parser.Parser.FUNCTION_PARSERS,
             "JSON_ARRAY": lambda self: self._parse_json_array(
                 exp.JSONArray,
@@ -144,10 +144,14 @@ class Oracle(Dialect):
 
         PROPERTY_PARSERS = {
             **parser.Parser.PROPERTY_PARSERS,
-            "GLOBAL": lambda self: self._match_text_seq("TEMPORARY")
-            and self.expression(exp.TemporaryProperty, this="GLOBAL"),
-            "PRIVATE": lambda self: self._match_text_seq("TEMPORARY")
-            and self.expression(exp.TemporaryProperty, this="PRIVATE"),
+            "GLOBAL": lambda self: (
+                self._match_text_seq("TEMPORARY")
+                and self.expression(exp.TemporaryProperty, this="GLOBAL")
+            ),
+            "PRIVATE": lambda self: (
+                self._match_text_seq("TEMPORARY")
+                and self.expression(exp.TemporaryProperty, this="PRIVATE")
+            ),
             "FORCE": lambda self: self.expression(exp.ForceProperty),
         }
 
@@ -174,7 +178,7 @@ class Oracle(Dialect):
             ),
         }
 
-        def _parse_dbms_random(self) -> t.Optional[exp.Expression]:
+        def _parse_dbms_random(self) -> exp.Expression | None:
             if self._match_text_seq(".", "VALUE"):
                 lower, upper = None, None
                 if self._match(TokenType.L_PAREN, advance=False):
@@ -187,7 +191,7 @@ class Oracle(Dialect):
             self._retreat(self._index - 1)
             return None
 
-        def _parse_json_array(self, expr_type: t.Type[E], **kwargs) -> E:
+        def _parse_json_array(self, expr_type: type[E], **kwargs) -> E:
             return self.expression(
                 expr_type,
                 null_handling=self._parse_on_handling("NULL", "NULL", "ABSENT"),
@@ -196,7 +200,7 @@ class Oracle(Dialect):
                 **kwargs,
             )
 
-        def _parse_hint_function_call(self) -> t.Optional[exp.Expression]:
+        def _parse_hint_function_call(self) -> exp.Expression | None:
             if not self._curr or not self._next or self._next.token_type != TokenType.L_PAREN:
                 return None
 
@@ -218,7 +222,7 @@ class Oracle(Dialect):
 
             return args
 
-        def _parse_query_restrictions(self) -> t.Optional[exp.Expression]:
+        def _parse_query_restrictions(self) -> exp.Expression | None:
             kind = self._parse_var_from_options(self.QUERY_RESTRICTIONS, raise_unmatched=False)
 
             if not kind:
@@ -242,7 +246,7 @@ class Oracle(Dialect):
                 on_condition=self._parse_on_condition(),
             )
 
-        def _parse_into(self) -> t.Optional[exp.Into]:
+        def _parse_into(self) -> exp.Into | None:
             # https://docs.oracle.com/en/database/oracle/oracle-database/19/lnpls/SELECT-INTO-statement.html
             bulk_collect = self._match(TokenType.BULK_COLLECT_INTO)
             if not bulk_collect and not self._match(TokenType.INTO):
@@ -317,10 +321,8 @@ class Oracle(Dialect):
                     transforms.eliminate_qualify,
                 ]
             ),
-            exp.StrPosition: lambda self, e: (
-                strposition_sql(
-                    self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
-                )
+            exp.StrPosition: lambda self, e: strposition_sql(
+                self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
             ),
             exp.StrToTime: lambda self, e: self.func("TO_TIMESTAMP", e.this, self.format_time(e)),
             exp.StrToDate: lambda self, e: self.func("TO_DATE", e.this, self.format_time(e)),
@@ -334,8 +336,9 @@ class Oracle(Dialect):
             exp.ToNumber: to_number_with_nls_param,
             exp.Trim: _trim_sql,
             exp.Unicode: lambda self, e: f"ASCII(UNISTR({self.sql(e.this)}))",
-            exp.UnixToTime: lambda self,
-            e: f"TO_DATE('1970-01-01', 'YYYY-MM-DD') + ({self.sql(e, 'this')} / 86400)",
+            exp.UnixToTime: lambda self, e: (
+                f"TO_DATE('1970-01-01', 'YYYY-MM-DD') + ({self.sql(e, 'this')} / 86400)"
+            ),
         }
 
         PROPERTIES_LOCATION = {

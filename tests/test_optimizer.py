@@ -4,15 +4,15 @@ from functools import partial
 from unittest.mock import patch
 
 import duckdb
-from pandas.testing import assert_frame_equal
-
 import sqlglot
+from pandas.testing import assert_frame_equal
 from sqlglot import exp, optimizer, parse_one
 from sqlglot.errors import OptimizeError, SchemaError
 from sqlglot.optimizer.annotate_types import annotate_types
 from sqlglot.optimizer.normalize import normalization_distance
 from sqlglot.optimizer.scope import build_scope, traverse_scope, walk_in_scope
 from sqlglot.schema import MappingSchema
+
 from tests.helpers import (
     TPCDS_SCHEMA,
     TPCH_SCHEMA,

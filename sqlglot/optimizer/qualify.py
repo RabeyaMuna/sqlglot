@@ -1,15 +1,19 @@
 from __future__ import annotations
 
-import typing as t
-
 from sqlglot import exp
 from sqlglot.dialects.dialect import Dialect, DialectType
 from sqlglot.optimizer.isolate_table_selects import isolate_table_selects
 from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 from sqlglot.optimizer.qualify_columns import (
     pushdown_cte_alias_columns as pushdown_cte_alias_columns_func,
+)
+from sqlglot.optimizer.qualify_columns import (
     qualify_columns as qualify_columns_func,
+)
+from sqlglot.optimizer.qualify_columns import (
     quote_identifiers as quote_identifiers_func,
+)
+from sqlglot.optimizer.qualify_columns import (
     validate_qualify_columns as validate_qualify_columns_func,
 )
 from sqlglot.optimizer.qualify_tables import qualify_tables
@@ -19,12 +23,12 @@ from sqlglot.schema import Schema, ensure_schema
 def qualify(
     expression: exp.Expression,
     dialect: DialectType = None,
-    db: t.Optional[str] = None,
-    catalog: t.Optional[str] = None,
-    schema: t.Optional[dict | Schema] = None,
+    db: str | None = None,
+    catalog: str | None = None,
+    schema: dict | Schema | None = None,
     expand_alias_refs: bool = True,
     expand_stars: bool = True,
-    infer_schema: t.Optional[bool] = None,
+    infer_schema: bool | None = None,
     isolate_tables: bool = False,
     qualify_columns: bool = True,
     allow_partial_qualification: bool = False,

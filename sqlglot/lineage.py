@@ -21,7 +21,7 @@ class Node:
     name: str
     expression: exp.Expression
     source: exp.Expression
-    downstream: t.List[Node] = field(default_factory=list)
+    downstream: list[Node] = field(default_factory=list)
     source_name: str = ""
     reference_node_name: str = ""
 
@@ -68,10 +68,10 @@ class Node:
 def lineage(
     column: str | exp.Column,
     sql: str | exp.Expression,
-    schema: t.Optional[t.Dict | Schema] = None,
-    sources: t.Optional[t.Mapping[str, str | exp.Query]] = None,
+    schema: dict | Schema | None = None,
+    sources: t.Mapping[str, str | exp.Query] | None = None,
     dialect: DialectType = None,
-    scope: t.Optional[Scope] = None,
+    scope: Scope | None = None,
     trim_selects: bool = True,
     **kwargs,
 ) -> Node:
@@ -124,10 +124,10 @@ def to_node(
     column: str | int,
     scope: Scope,
     dialect: DialectType,
-    scope_name: t.Optional[str] = None,
-    upstream: t.Optional[Node] = None,
-    source_name: t.Optional[str] = None,
-    reference_node_name: t.Optional[str] = None,
+    scope_name: str | None = None,
+    upstream: Node | None = None,
+    source_name: str | None = None,
+    reference_node_name: str | None = None,
     trim_selects: bool = True,
 ) -> Node:
     # Find the specific select clause that is the source of the column we want.
@@ -351,9 +351,7 @@ class GraphHTML:
     https://visjs.github.io/vis-network/docs/network/
     """
 
-    def __init__(
-        self, nodes: t.Dict, edges: t.List, imports: bool = True, options: t.Optional[t.Dict] = None
-    ):
+    def __init__(self, nodes: dict, edges: list, imports: bool = True, options: dict | None = None):
         self.imports = imports
 
         self.options = {

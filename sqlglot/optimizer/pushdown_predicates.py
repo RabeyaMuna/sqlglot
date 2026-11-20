@@ -1,8 +1,7 @@
-from sqlglot import exp
+from sqlglot import Dialect, exp
 from sqlglot.optimizer.normalize import normalized
 from sqlglot.optimizer.scope import build_scope, find_in_scope
 from sqlglot.optimizer.simplify import simplify
-from sqlglot import Dialect
 
 
 def pushdown_predicates(expression, dialect=None):

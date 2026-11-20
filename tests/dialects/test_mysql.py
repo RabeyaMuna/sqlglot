@@ -1,8 +1,10 @@
-import unittest
 import sys
+import unittest
 
-from sqlglot import UnsupportedError, expressions as exp
+from sqlglot import UnsupportedError
+from sqlglot import expressions as exp
 from sqlglot.dialects.mysql import MySQL
+
 from tests.dialects.test_dialect import Validator
 
 

@@ -4,11 +4,10 @@ import itertools
 import typing as t
 
 from sqlglot import alias, exp
-from sqlglot.dialects.dialect import DialectType
+from sqlglot.dialects.dialect import Dialect, DialectType
 from sqlglot.helper import csv_reader, name_sequence
 from sqlglot.optimizer.scope import Scope, traverse_scope
 from sqlglot.schema import Schema
-from sqlglot.dialects.dialect import Dialect
 
 if t.TYPE_CHECKING:
     from sqlglot._typing import E
@@ -16,9 +15,9 @@ if t.TYPE_CHECKING:
 
 def qualify_tables(
     expression: E,
-    db: t.Optional[str | exp.Identifier] = None,
-    catalog: t.Optional[str | exp.Identifier] = None,
-    schema: t.Optional[Schema] = None,
+    db: str | exp.Identifier | None = None,
+    catalog: str | exp.Identifier | None = None,
+    schema: Schema | None = None,
     infer_csv_schemas: bool = False,
     dialect: DialectType = None,
 ) -> E:

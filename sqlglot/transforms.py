@@ -6,14 +6,13 @@ from sqlglot import expressions as exp
 from sqlglot.errors import UnsupportedError
 from sqlglot.helper import find_new_name, name_sequence
 
-
 if t.TYPE_CHECKING:
     from sqlglot._typing import E
     from sqlglot.generator import Generator
 
 
 def preprocess(
-    transforms: t.List[t.Callable[[exp.Expression], exp.Expression]],
+    transforms: list[t.Callable[[exp.Expression], exp.Expression]],
 ) -> t.Callable[[Generator, exp.Expression], str]:
     """
     Creates a new transform by chaining a sequence of transformations and converts the resulting
@@ -323,21 +322,21 @@ def unnest_to_explode(
     """Convert cross join unnest into lateral view explode."""
 
     def _unnest_zip_exprs(
-        u: exp.Unnest, unnest_exprs: t.List[exp.Expression], has_multi_expr: bool
-    ) -> t.List[exp.Expression]:
+        u: exp.Unnest, unnest_exprs: list[exp.Expression], has_multi_expr: bool
+    ) -> list[exp.Expression]:
         if has_multi_expr:
             if not unnest_using_arrays_zip:
                 raise UnsupportedError("Cannot transpile UNNEST with multiple input arrays")
 
             # Use INLINE(ARRAYS_ZIP(...)) for multiple expressions
-            zip_exprs: t.List[exp.Expression] = [
+            zip_exprs: list[exp.Expression] = [
                 exp.Anonymous(this="ARRAYS_ZIP", expressions=unnest_exprs)
             ]
             u.set("expressions", zip_exprs)
             return zip_exprs
         return unnest_exprs
 
-    def _udtf_type(u: exp.Unnest, has_multi_expr: bool) -> t.Type[exp.Func]:
+    def _udtf_type(u: exp.Unnest, has_multi_expr: bool) -> type[exp.Func]:
         if u.args.get("offset"):
             return exp.Posexplode
         return exp.Inline if has_multi_expr else exp.Explode
@@ -435,12 +434,12 @@ def explode_projection_to_unnest(
             taken_select_names = set(expression.named_selects)
             taken_source_names = {name for name, _ in Scope(expression).references}
 
-            def new_name(names: t.Set[str], name: str) -> str:
+            def new_name(names: set[str], name: str) -> str:
                 name = find_new_name(names, name)
                 names.add(name)
                 return name
 
-            arrays: t.List[exp.Condition] = []
+            arrays: list[exp.Condition] = []
             series_alias = new_name(taken_select_names, "pos")
             series = exp.alias_(
                 exp.Unnest(
@@ -896,9 +895,10 @@ def eliminate_join_marks(expression: exp.Expression) -> exp.Expression:
         ) t
     """
 
-    from sqlglot.optimizer.scope import traverse_scope
-    from sqlglot.optimizer.normalize import normalize, normalized
     from collections import defaultdict
+
+    from sqlglot.optimizer.normalize import normalize, normalized
+    from sqlglot.optimizer.scope import traverse_scope
 
     # we go in reverse to check the main query for left correlation
     for scope in reversed(traverse_scope(expression)):
@@ -1011,7 +1011,7 @@ def eliminate_window_clause(expression: exp.Expression) -> exp.Expression:
         windows = expression.args["windows"]
         expression.set("windows", None)
 
-        window_expression: t.Dict[str, exp.Expression] = {}
+        window_expression: dict[str, exp.Expression] = {}
 
         def _inline_inherited_window(window: exp.Expression) -> None:
             inherited_window = window_expression.get(window.alias.lower())

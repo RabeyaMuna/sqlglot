@@ -1,7 +1,4 @@
-from sqlglot import TokenType
-import typing as t
-
-from sqlglot import exp
+from sqlglot import TokenType, exp
 from sqlglot.dialects.dialect import build_formatted_time
 from sqlglot.dialects.mysql import MySQL
 from sqlglot.generator import unsupported_args
@@ -11,7 +8,7 @@ from sqlglot.helper import seq_get
 class SingleStore(MySQL):
     SUPPORTS_ORDER_BY_ALL = True
 
-    TIME_MAPPING: t.Dict[str, str] = {
+    TIME_MAPPING: dict[str, str] = {
         "D": "%u",  # Day of week (1-7)
         "DD": "%d",  # day of month (01-31)
         "DY": "%a",  # abbreviated name of day

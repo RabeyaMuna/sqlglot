@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from sqlglot import exp, transforms
 from sqlglot.dialects.dialect import NormalizationStrategy
 from sqlglot.dialects.tsql import TSQL

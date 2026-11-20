@@ -1,11 +1,13 @@
 from datetime import date, datetime, timezone
+
 from sqlglot import exp, parse_one
 from sqlglot.dialects import ClickHouse
+from sqlglot.errors import ErrorLevel
 from sqlglot.expressions import convert
 from sqlglot.optimizer import traverse_scope
 from sqlglot.optimizer.qualify_columns import quote_identifiers
+
 from tests.dialects.test_dialect import Validator
-from sqlglot.errors import ErrorLevel
 
 
 class TestClickhouse(Validator):

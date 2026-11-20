@@ -1,5 +1,6 @@
 from sqlglot import UnsupportedError, exp, parse_one
 from sqlglot.helper import logger as helper_logger
+
 from tests.dialects.test_dialect import Validator
 
 

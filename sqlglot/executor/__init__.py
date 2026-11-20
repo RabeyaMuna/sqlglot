@@ -30,10 +30,10 @@ if t.TYPE_CHECKING:
 
 def execute(
     sql: str | Expression,
-    schema: t.Optional[t.Dict | Schema] = None,
+    schema: dict | Schema | None = None,
     read: DialectType = None,
     dialect: DialectType = None,
-    tables: t.Optional[t.Dict] = None,
+    tables: dict | None = None,
 ) -> Table:
     """
     Run a sql query against data.

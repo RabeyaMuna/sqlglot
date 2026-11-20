@@ -1,6 +1,7 @@
 from sqlglot import exp, parse, parse_one
 from sqlglot.errors import ParseError, UnsupportedError
 from sqlglot.optimizer.annotate_types import annotate_types
+
 from tests.dialects.test_dialect import Validator
 
 

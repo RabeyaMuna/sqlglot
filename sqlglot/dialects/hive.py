@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import typing as t
+from collections import defaultdict
 from copy import deepcopy
 from functools import partial
-from collections import defaultdict
 
 from sqlglot import exp, generator, parser, tokens, transforms
 from sqlglot.dialects.dialect import (
@@ -12,8 +12,9 @@ from sqlglot.dialects.dialect import (
     NormalizationStrategy,
     approx_count_distinct_sql,
     arg_max_or_min_no_count,
-    datestrtodate_sql,
     build_formatted_time,
+    build_regexp_extract,
+    datestrtodate_sql,
     if_sql,
     is_parse_json,
     left_to_substring_sql,
@@ -22,30 +23,29 @@ from sqlglot.dialects.dialect import (
     no_ilike_sql,
     no_recursive_cte_sql,
     no_trycast_sql,
+    property_sql,
     regexp_extract_sql,
     regexp_replace_sql,
     rename_func,
     right_to_substring_sql,
+    sequence_sql,
     strposition_sql,
     struct_extract_sql,
     time_format,
     timestrtotime_sql,
     unit_to_str,
     var_map_sql,
-    sequence_sql,
-    property_sql,
-    build_regexp_extract,
 )
-from sqlglot.transforms import (
-    remove_unique_constraints,
-    ctas_with_tmp_tables_to_create_tmp_view,
-    preprocess,
-    move_schema_columns_to_partitioned_by,
-)
-from sqlglot.helper import seq_get
-from sqlglot.tokens import TokenType
 from sqlglot.generator import unsupported_args
+from sqlglot.helper import seq_get
 from sqlglot.optimizer.annotate_types import TypeAnnotator
+from sqlglot.tokens import TokenType
+from sqlglot.transforms import (
+    ctas_with_tmp_tables_to_create_tmp_view,
+    move_schema_columns_to_partitioned_by,
+    preprocess,
+    remove_unique_constraints,
+)
 
 # (FuncType, Multiplier)
 DATE_DELTA_INTERVAL = {
@@ -177,9 +177,9 @@ def _to_date_sql(self: Hive.Generator, expression: exp.TsOrDsToDate) -> str:
 
 
 def _build_with_ignore_nulls(
-    exp_class: t.Type[exp.Expression],
-) -> t.Callable[[t.List[exp.Expression]], exp.Expression]:
-    def _parse(args: t.List[exp.Expression]) -> exp.Expression:
+    exp_class: type[exp.Expression],
+) -> t.Callable[[list[exp.Expression]], exp.Expression]:
+    def _parse(args: list[exp.Expression]) -> exp.Expression:
         this = exp_class(this=seq_get(args, 0))
         if seq_get(args, 1) == exp.true():
             return exp.IgnoreNulls(this=this)
@@ -188,7 +188,7 @@ def _build_with_ignore_nulls(
     return _parse
 
 
-def _build_to_date(args: t.List) -> exp.TsOrDsToDate:
+def _build_to_date(args: list) -> exp.TsOrDsToDate:
     expr = build_formatted_time(exp.TsOrDsToDate, "hive")(args)
     expr.set("safe", True)
     return expr
@@ -371,7 +371,7 @@ class Hive(Dialect):
             ),
         }
 
-        def _parse_transform(self) -> t.Optional[exp.Transform | exp.QueryTransform]:
+        def _parse_transform(self) -> exp.Transform | exp.QueryTransform | None:
             if not self._match(TokenType.L_PAREN, advance=False):
                 self._retreat(self._index - 1)
                 return None
@@ -409,7 +409,7 @@ class Hive(Dialect):
 
         def _parse_types(
             self, check_func: bool = False, schema: bool = False, allow_identifiers: bool = True
-        ) -> t.Optional[exp.Expression]:
+        ) -> exp.Expression | None:
             """
             Spark (and most likely Hive) treats casts to CHAR(length) and VARCHAR(length) as casts to
             STRING in all contexts except for schema definitions. For example, this is in Spark v3.4.0:
@@ -446,7 +446,7 @@ class Hive(Dialect):
 
         def _parse_partition_and_order(
             self,
-        ) -> t.Tuple[t.List[exp.Expression], t.Optional[exp.Expression]]:
+        ) -> tuple[list[exp.Expression], exp.Expression | None]:
             return (
                 (
                     self._parse_csv(self._parse_assignment)
@@ -489,7 +489,7 @@ class Hive(Dialect):
         JSON_PATH_SINGLE_QUOTE_ESCAPE = True
         SUPPORTS_TO_NUMBER = False
         WITH_PROPERTIES_PREFIX = "TBLPROPERTIES"
-        PARSE_JSON_NAME: t.Optional[str] = None
+        PARSE_JSON_NAME: str | None = None
         PAD_FILL_PATTERN_IS_REQUIRED = True
         SUPPORTS_MEDIAN = False
         ARRAY_SIZE_NAME = "SIZE"
@@ -538,10 +538,12 @@ class Hive(Dialect):
             exp.DateDiff: _date_diff_sql,
             exp.DateStrToDate: datestrtodate_sql,
             exp.DateSub: _add_date_sql,
-            exp.DateToDi: lambda self,
-            e: f"CAST(DATE_FORMAT({self.sql(e, 'this')}, {Hive.DATEINT_FORMAT}) AS INT)",
-            exp.DiToDate: lambda self,
-            e: f"TO_DATE(CAST({self.sql(e, 'this')} AS STRING), {Hive.DATEINT_FORMAT})",
+            exp.DateToDi: lambda self, e: (
+                f"CAST(DATE_FORMAT({self.sql(e, 'this')}, {Hive.DATEINT_FORMAT}) AS INT)"
+            ),
+            exp.DiToDate: lambda self, e: (
+                f"TO_DATE(CAST({self.sql(e, 'this')} AS STRING), {Hive.DATEINT_FORMAT})"
+            ),
             exp.StorageHandlerProperty: lambda self, e: f"STORED BY {self.sql(e, 'this')}",
             exp.FromBase64: rename_func("UNBASE64"),
             exp.GenerateSeries: sequence_sql,
@@ -608,8 +610,9 @@ class Hive(Dialect):
             exp.TimestampTrunc: lambda self, e: self.func("TRUNC", e.this, unit_to_str(e)),
             exp.TimeToUnix: rename_func("UNIX_TIMESTAMP"),
             exp.ToBase64: rename_func("BASE64"),
-            exp.TsOrDiToDi: lambda self,
-            e: f"CAST(SUBSTR(REPLACE(CAST({self.sql(e, 'this')} AS STRING), '-', ''), 1, 8) AS INT)",
+            exp.TsOrDiToDi: lambda self, e: (
+                f"CAST(SUBSTR(REPLACE(CAST({self.sql(e, 'this')} AS STRING), '-', ''), 1, 8) AS INT)"
+            ),
             exp.TsOrDsAdd: _add_date_sql,
             exp.TsOrDsDiff: _date_diff_sql,
             exp.TsOrDsToDate: _to_date_sql,
@@ -624,10 +627,12 @@ class Hive(Dialect):
             exp.PartitionedByProperty: lambda self, e: f"PARTITIONED BY {self.sql(e, 'this')}",
             exp.NumberToStr: rename_func("FORMAT_NUMBER"),
             exp.National: lambda self, e: self.national_sql(e, prefix=""),
-            exp.ClusteredColumnConstraint: lambda self,
-            e: f"({self.expressions(e, 'this', indent=False)})",
-            exp.NonClusteredColumnConstraint: lambda self,
-            e: f"({self.expressions(e, 'this', indent=False)})",
+            exp.ClusteredColumnConstraint: lambda self, e: (
+                f"({self.expressions(e, 'this', indent=False)})"
+            ),
+            exp.NonClusteredColumnConstraint: lambda self, e: (
+                f"({self.expressions(e, 'this', indent=False)})"
+            ),
             exp.NotForReplicationColumnConstraint: lambda *_: "",
             exp.OnProperty: lambda *_: "",
             exp.PartitionedByBucket: lambda self, e: self.func("BUCKET", e.expression, e.this),
@@ -649,7 +654,7 @@ class Hive(Dialect):
             exp.WithDataProperty: exp.Properties.Location.UNSUPPORTED,
         }
 
-        TS_OR_DS_EXPRESSIONS: t.Tuple[t.Type[exp.Expression], ...] = (
+        TS_OR_DS_EXPRESSIONS: tuple[type[exp.Expression], ...] = (
             exp.DateDiff,
             exp.Day,
             exp.Month,

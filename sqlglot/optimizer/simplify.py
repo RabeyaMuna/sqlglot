@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import datetime
-import logging
 import functools
 import itertools
+import logging
 import typing as t
-from collections import deque, defaultdict
+from collections import defaultdict, deque
 from functools import reduce
 
 import sqlglot
@@ -17,7 +17,7 @@ if t.TYPE_CHECKING:
     from sqlglot.dialects.dialect import DialectType
 
     DateTruncBinaryTransform = t.Callable[
-        [exp.Expression, datetime.date, str, Dialect, exp.DataType], t.Optional[exp.Expression]
+        [exp.Expression, datetime.date, str, Dialect, exp.DataType], exp.Expression | None
     ]
 
 logger = logging.getLogger("sqlglot")
@@ -313,7 +313,7 @@ COMPARISONS = (
     exp.Is,
 )
 
-INVERSE_COMPARISONS: t.Dict[t.Type[exp.Expression], t.Type[exp.Expression]] = {
+INVERSE_COMPARISONS: dict[type[exp.Expression], type[exp.Expression]] = {
     exp.LT: exp.GT,
     exp.GT: exp.LT,
     exp.LTE: exp.GTE,
@@ -546,14 +546,14 @@ def propagate_constants(expression, root=True):
     return expression
 
 
-INVERSE_DATE_OPS: t.Dict[t.Type[exp.Expression], t.Type[exp.Expression]] = {
+INVERSE_DATE_OPS: dict[type[exp.Expression], type[exp.Expression]] = {
     exp.DateAdd: exp.Sub,
     exp.DateSub: exp.Add,
     exp.DatetimeAdd: exp.Sub,
     exp.DatetimeSub: exp.Add,
 }
 
-INVERSE_OPS: t.Dict[t.Type[exp.Expression], t.Type[exp.Expression]] = {
+INVERSE_OPS: dict[type[exp.Expression], type[exp.Expression]] = {
     **INVERSE_DATE_OPS,
     exp.Add: exp.Sub,
     exp.Sub: exp.Add,
@@ -932,10 +932,10 @@ def simplify_startswith(expression: exp.Expression) -> exp.Expression:
     return expression
 
 
-DateRange = t.Tuple[datetime.date, datetime.date]
+DateRange = tuple[datetime.date, datetime.date]
 
 
-def _datetrunc_range(date: datetime.date, unit: str, dialect: Dialect) -> t.Optional[DateRange]:
+def _datetrunc_range(date: datetime.date, unit: str, dialect: Dialect) -> DateRange | None:
     """
     Get the date range for a DATE_TRUNC equality comparison:
 
@@ -954,7 +954,7 @@ def _datetrunc_range(date: datetime.date, unit: str, dialect: Dialect) -> t.Opti
 
 
 def _datetrunc_eq_expression(
-    left: exp.Expression, drange: DateRange, target_type: t.Optional[exp.DataType]
+    left: exp.Expression, drange: DateRange, target_type: exp.DataType | None
 ) -> exp.Expression:
     """Get the logical expression for a date range"""
     return exp.and_(
@@ -969,8 +969,8 @@ def _datetrunc_eq(
     date: datetime.date,
     unit: str,
     dialect: Dialect,
-    target_type: t.Optional[exp.DataType],
-) -> t.Optional[exp.Expression]:
+    target_type: exp.DataType | None,
+) -> exp.Expression | None:
     drange = _datetrunc_range(date, unit, dialect)
     if not drange:
         return None
@@ -983,8 +983,8 @@ def _datetrunc_neq(
     date: datetime.date,
     unit: str,
     dialect: Dialect,
-    target_type: t.Optional[exp.DataType],
-) -> t.Optional[exp.Expression]:
+    target_type: exp.DataType | None,
+) -> exp.Expression | None:
     drange = _datetrunc_range(date, unit, dialect)
     if not drange:
         return None
@@ -996,9 +996,11 @@ def _datetrunc_neq(
     )
 
 
-DATETRUNC_BINARY_COMPARISONS: t.Dict[t.Type[exp.Expression], DateTruncBinaryTransform] = {
-    exp.LT: lambda l, dt, u, d, t: l
-    < date_literal(dt if dt == date_floor(dt, u, d) else date_floor(dt, u, d) + interval(u), t),
+DATETRUNC_BINARY_COMPARISONS: dict[type[exp.Expression], DateTruncBinaryTransform] = {
+    exp.LT: lambda l, dt, u, d, t: (
+        l
+        < date_literal(dt if dt == date_floor(dt, u, d) else date_floor(dt, u, d) + interval(u), t)
+    ),
     exp.GT: lambda l, dt, u, d, t: l >= date_literal(date_floor(dt, u, d) + interval(u), t),
     exp.LTE: lambda l, dt, u, d, t: l < date_literal(date_floor(dt, u, d) + interval(u), t),
     exp.GTE: lambda l, dt, u, d, t: l >= date_literal(date_ceil(dt, u, d), t),
@@ -1168,7 +1170,7 @@ def eval_boolean(expression, a, b):
     return None
 
 
-def cast_as_date(value: t.Any) -> t.Optional[datetime.date]:
+def cast_as_date(value: t.Any) -> datetime.date | None:
     if isinstance(value, datetime.datetime):
         return value.date()
     if isinstance(value, datetime.date):
@@ -1179,7 +1181,7 @@ def cast_as_date(value: t.Any) -> t.Optional[datetime.date]:
         return None
 
 
-def cast_as_datetime(value: t.Any) -> t.Optional[datetime.datetime]:
+def cast_as_datetime(value: t.Any) -> datetime.datetime | None:
     if isinstance(value, datetime.datetime):
         return value
     if isinstance(value, datetime.date):
@@ -1190,7 +1192,7 @@ def cast_as_datetime(value: t.Any) -> t.Optional[datetime.datetime]:
         return None
 
 
-def cast_value(value: t.Any, to: exp.DataType) -> t.Optional[t.Union[datetime.date, datetime.date]]:
+def cast_value(value: t.Any, to: exp.DataType) -> datetime.date | datetime.date | None:
     if not value:
         return None
     if to.is_type(exp.DataType.Type.DATE):
@@ -1200,7 +1202,7 @@ def cast_value(value: t.Any, to: exp.DataType) -> t.Optional[t.Union[datetime.da
     return None
 
 
-def extract_date(cast: exp.Expression) -> t.Optional[t.Union[datetime.date, datetime.date]]:
+def extract_date(cast: exp.Expression) -> datetime.date | datetime.date | None:
     if isinstance(cast, exp.Cast):
         to = cast.to
     elif isinstance(cast, exp.TsOrDsToDate) and not cast.args.get("format"):

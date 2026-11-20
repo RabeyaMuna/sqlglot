@@ -9,13 +9,13 @@ from sqlglot.schema import ensure_schema
 
 if t.TYPE_CHECKING:
     from sqlglot._typing import E
-    from sqlglot.schema import Schema
     from sqlglot.dialects.dialect import DialectType
+    from sqlglot.schema import Schema
 
 
 def isolate_table_selects(
     expression: E,
-    schema: t.Optional[t.Dict | Schema] = None,
+    schema: dict | Schema | None = None,
     dialect: DialectType = None,
 ) -> E:
     schema = ensure_schema(schema, dialect=dialect)
