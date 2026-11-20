@@ -827,6 +827,7 @@ ARRAY<STRUCT<BIGINT, BIGINT>>;
 SAFE_CONVERT_BYTES_TO_STRING(b'\xc2');
 STRING;
 
+# dialect: bigquery
 FROM_HEX('foo');
 BINARY;
 
