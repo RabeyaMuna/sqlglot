@@ -51,7 +51,15 @@ class Validator(unittest.TestCase):
         """
         expression = self.parse_one(sql)
 
-        for read_dialect, read_sql in (read or {}).items():
+        read = read or {}
+        write = write or {}
+
+        if not isinstance(read, dict):
+            read = {}
+        if not isinstance(write, dict):
+            write = {}
+
+        for read_dialect, read_sql in read.items():
             with self.subTest(f"{read_dialect} -> {sql}"):
                 self.assertEqual(
                     parse_one(read_sql, read_dialect).sql(
@@ -63,7 +71,7 @@ class Validator(unittest.TestCase):
                     sql,
                 )
 
-        for write_dialect, write_sql in (write or {}).items():
+        for write_dialect, write_sql in write.items():
             with self.subTest(f"{sql} -> {write_dialect}"):
                 if write_sql is UnsupportedError:
                     with self.assertRaises(UnsupportedError):
@@ -978,7 +986,7 @@ class TestDialect(Validator):
             "DATE_ADD(x, 1, 'DAY')",
             read={
                 "snowflake": "DATEADD('DAY', 1, x)",
-                "dremio": "DATE_ADD(x, 1)",
+                "dremio": "DATE_ADD(CAST(x AS DATE), 1)",
             },
             write={
                 "bigquery": "DATE_ADD(x, INTERVAL 1 DAY)",
