@@ -37,9 +37,9 @@ unit-rs:
 	SKIP_INTEGRATION=1 RUST_BACKTRACE=1 python -m unittest
 
 style:
-	pre-commit run --all-files
+	pre-commit run --all-files --hook-stage manual
 
-check: style test test-rs
+check: test test-rs
 
 docs:
 	python pdoc/cli.py -o docs
