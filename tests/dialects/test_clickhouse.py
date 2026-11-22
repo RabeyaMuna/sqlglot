@@ -13,7 +13,7 @@ class TestClickhouse(Validator):
 
     def test_clickhouse(self):
         expr = quote_identifiers(self.parse_one("{start_date:String}"), dialect="clickhouse")
-        self.assertEqual(expr.sql("clickhouse"), "{start_date: String}")
+        self.assertEqual(expr.sql("clickhouse"), "{start_date:String}")
 
         for string_type_enum in ClickHouse.Generator.STRING_TYPE_MAPPING:
             self.validate_identity(f"CAST(x AS {string_type_enum.value})", "CAST(x AS String)")
