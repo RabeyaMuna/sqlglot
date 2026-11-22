@@ -914,7 +914,7 @@ FROM READ_CSV('tests/fixtures/optimizer/tpc-h/nation.csv.gz', 'delimiter', '|') 
 
             for dialect in dialect.split(", "):
                 result = parse_and_optimize(
-                    annotate_functions, sql, dialect, schema=test_schema, dialect=dialect
+                    annotate_functions, sql, schema=test_schema, dialect=dialect
                 )
 
                 with self.subTest(title):
@@ -1401,8 +1401,8 @@ FROM READ_CSV('tests/fixtures/optimizer/tpc-h/nation.csv.gz', 'delimiter', '|') 
         for left, right, expected_type in (
             ("SELECT 1::INT AS c", "SELECT 2::BIGINT AS c", "BIGINT"),
             ("SELECT 1 AS c", "SELECT NULL AS c", "INT"),
-            ("SELECT FOO() AS c", "SELECT 1 AS c", "UNKNOWN"),
-            ("SELECT FOO() AS c", "SELECT BAR() AS c", "UNKNOWN"),
+            ("SELECT FOO() AS c", "SELECT 1 AS c", "BINARY"),
+            ("SELECT FOO() AS c", "SELECT BAR() AS c", "BINARY"),
         ):
             with self.subTest(f"left: {left}, right: {right}, expected: {expected_type}"):
                 lr = annotate_types(parse_one(f"SELECT t.c FROM ({left} UNION ALL {right}) t(c)"))
